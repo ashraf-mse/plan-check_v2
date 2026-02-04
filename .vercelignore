@@ -1,0 +1,21 @@
+# Documentation
+*.md
+**/*.md
+README.md
+CHANGELOG.md
+docs/
+
+# Development files
+.windsurf/
+.vscode/
+.idea/
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+__tests__/
+
+# Other
+.env.local
+.env.development

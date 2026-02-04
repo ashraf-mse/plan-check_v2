@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
+import { PostHogProvider } from "./providers";
 
 const inter = Inter({
     subsets: ["latin"],
@@ -24,7 +26,10 @@ export default function RootLayout({
     return (
         <html lang="en" className="h-full">
             <body className={`${inter.variable} font-sans antialiased h-full bg-gradient-to-br from-gray-50 via-white to-blue-50/30 text-gray-900`}>
-                {children}
+                <PostHogProvider>
+                    {children}
+                </PostHogProvider>
+                <Analytics />
             </body>
         </html>
     );
