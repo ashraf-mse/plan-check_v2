@@ -11,6 +11,9 @@ export const metadata: Metadata = {
     title: "PlanCheck · PostgreSQL Performance Analysis",
     description: "Analyze PostgreSQL execution plans with precision. Identify bottlenecks, optimize queries, and improve database performance.",
     keywords: ["postgresql", "explain", "analyze", "database", "performance", "query optimization"],
+    icons: {
+        icon: '/icon.svg',
+    },
 };
 
 export default function RootLayout({

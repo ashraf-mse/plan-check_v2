@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
+    // Disable logging in production for security
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ ok: true });
+    }
+
     try {
         const entry = await request.json();
         const { level, module, message, timestamp } = entry;

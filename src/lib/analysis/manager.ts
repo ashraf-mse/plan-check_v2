@@ -12,6 +12,10 @@ import { parallelQueryDetector } from '@/lib/detectors/parallelQuery';
 import { bitmapHeapRecheckDetector } from '@/lib/detectors/bitmapHeapRecheck';
 import { sortMemoryDetector } from '@/lib/detectors/sortMemory';
 import { joinFilterDetector } from '@/lib/detectors/joinFilter';
+import { cteMaterializationDetector } from '@/lib/detectors/cteMaterialization';
+import { triggerOverheadDetector } from '@/lib/detectors/triggerOverhead';
+import { recursiveExplosionDetector } from '@/lib/detectors/recursiveExplosion';
+import { jitOverheadDetector } from '@/lib/detectors/jitOverhead';
 import Logger from '@/lib/utils/logger';
 
 // Type for detector functions
@@ -30,7 +34,11 @@ const DETECTORS: DetectorFunction[] = [
     parallelQueryDetector,
     bitmapHeapRecheckDetector,
     sortMemoryDetector,
-    joinFilterDetector
+    joinFilterDetector,
+    cteMaterializationDetector,
+    triggerOverheadDetector,
+    recursiveExplosionDetector,
+    jitOverheadDetector
 ];
 
 export class AnalysisManager {

@@ -15,8 +15,15 @@ export function sortMemoryDetector(node: any): TruthfulDetection | null {
     const sortMethod = node['Sort Method'];
     const sortKey = node['Sort Key'];
 
-    // Check if sort is using disk
-    if (sortSpaceType === 'Disk' || (typeof sortMethod === 'string' && sortMethod.toLowerCase().includes('external'))) {
+    // Check if sort is using disk, but ONLY if it's not an external merge (which diskSpill handles)
+    // This detector handles cases where Sort Space Type is Disk but method is NOT external merge
+    const isExternalMerge = typeof sortMethod === 'string' && sortMethod.toLowerCase().includes('external');
+    
+    // Skip if external merge - that's handled by diskSpillDetector to avoid duplicates
+    if (isExternalMerge) return null;
+    
+    // Only fire for Disk storage without external merge (rare edge cases)
+    if (sortSpaceType === 'Disk') {
         const spaceKB = typeof sortSpaceUsed === 'number' ? sortSpaceUsed : 0;
         const spaceMB = (spaceKB / 1024).toFixed(2);
 

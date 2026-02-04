@@ -6,18 +6,32 @@ export function missingIndexDetector(node: any): TruthfulDetection | null {
     const filter = node['Filter'];
     if (!filter) return null;
 
-    const rowsRemoved = typeof node['Rows Removed by Filter'] === 'number' ? node['Rows Removed by Filter'] : 0;
-    const actualRows = typeof node['Actual Rows'] === 'number' 
-        ? node['Actual Rows'] 
-        : (typeof node['Plan Rows'] === 'number' ? node['Plan Rows'] : 0);
+    // Require Rows Removed by Filter to be present
+    const rowsRemoved = node['Rows Removed by Filter'];
+    if (typeof rowsRemoved !== 'number' || rowsRemoved === 0) return null;
+
+    // Require Actual Rows to calculate true selectivity
+    // Without Actual Rows, we cannot determine what percentage was filtered
+    const actualRows = node['Actual Rows'];
+    if (typeof actualRows !== 'number') return null;
+
+    // Skip IS NULL anchor queries that return few rows
+    // These are often intentional root lookups in recursive CTEs (e.g., finding root managers)
+    // Pattern: "column IS NULL" returning 1-10 rows is expected behavior, not a missing index
+    if (filter.match(/IS\s+NULL/i) && actualRows <= 10) {
+        return null;
+    }
+
     const totalRows = actualRows + rowsRemoved;
 
-    // Guard against division by zero and small tables
+    // Guard against small tables
     if (totalRows <= 1000) return null;
 
+    // Calculate filter selectivity: what percentage was removed
     const filterRatio = rowsRemoved / totalRows;
 
     // Trigger if more than 90% of rows are filtered out
+    // This indicates an index could help skip most of the table
     if (filterRatio > 0.9) {
         const percentage = (filterRatio * 100).toFixed(1);
         const relation = node['Relation Name'];

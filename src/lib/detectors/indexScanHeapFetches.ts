@@ -22,7 +22,7 @@ export function indexScanHeapFetchesDetector(node: any): TruthfulDetection | nul
     // If heap fetches is close to or higher than actual rows, it's not using index-only
     const fetchRatio = heapFetches / actualRows;
 
-    if (fetchRatio > 0.5 && heapFetches > 1000) {
+    if (fetchRatio >= 0.5 && heapFetches > 1000) {
         return {
             id: 'index_scan_heap_fetches',
             title: 'Index Scan with High Heap Fetches',

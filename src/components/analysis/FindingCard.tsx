@@ -1,130 +1,242 @@
 "use client";
 
 import { TruthfulDetection } from '@/lib/types/core';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, AlertTriangle, ChevronDown, Copy, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface FindingCardProps {
     finding: TruthfulDetection;
+    onNodeHighlight?: (nodeId: string) => void;
 }
 
-export function FindingCard({ finding }: FindingCardProps) {
-    const impactConfig = {
-        low: {
-            bg: 'bg-gradient-to-br from-blue-50 to-blue-100/50',
-            border: 'border-blue-200/60',
-            badge: 'bg-blue-100 text-blue-700 border-blue-200',
-            dot: 'bg-blue-500'
+export function FindingCard({ finding, onNodeHighlight }: FindingCardProps) {
+    const [expandedSections, setExpandedSections] = useState({
+        evidence: true,
+        explanation: true,
+        limitations: false
+    });
+    const [copied, setCopied] = useState(false);
+
+    const toggleSection = (section: keyof typeof expandedSections) => {
+        setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    const handleCopy = async (text: string) => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+    const severityConfig = {
+        low: { 
+            color: 'var(--accent-blue)', 
+            bg: 'rgba(59, 130, 246, 0.1)', 
+            border: 'rgba(59, 130, 246, 0.3)',
+            glow: 'var(--glow-blue)',
+            label: 'Low' 
         },
-        medium: {
-            bg: 'bg-gradient-to-br from-amber-50 to-amber-100/50',
-            border: 'border-amber-200/60',
-            badge: 'bg-amber-100 text-amber-700 border-amber-200',
-            dot: 'bg-amber-500'
+        medium: { 
+            color: 'var(--accent-orange)', 
+            bg: 'rgba(245, 158, 11, 0.1)', 
+            border: 'rgba(245, 158, 11, 0.3)',
+            glow: 'var(--glow-orange)',
+            label: 'Medium' 
         },
-        high: {
-            bg: 'bg-gradient-to-br from-red-50 to-red-100/50',
-            border: 'border-red-200/60',
-            badge: 'bg-red-100 text-red-700 border-red-200',
-            dot: 'bg-red-500'
+        high: { 
+            color: 'var(--accent-red)', 
+            bg: 'rgba(239, 68, 68, 0.1)', 
+            border: 'rgba(239, 68, 68, 0.3)',
+            glow: 'var(--glow-red)',
+            label: 'High' 
         }
     };
 
-    const confidenceBadge = {
-        verified: { label: 'Verified', className: 'bg-green-100 text-green-700 border-green-200' },
-        inferred: { label: 'Inferred', className: 'bg-purple-100 text-purple-700 border-purple-200' },
-        educational: { label: 'Educational', className: 'bg-gray-100 text-gray-700 border-gray-200' }
-    };
-
-    const config = impactConfig[finding.impact];
+    const config = severityConfig[finding.impact];
 
     return (
-        <div className={cn(
-            "border rounded-2xl p-7 space-y-6 transition-all hover:shadow-lg card-glow",
-            config.bg,
-            config.border
-        )}>
-            {/* Header */}
-            <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                        <div className={cn("w-2 h-2 rounded-full mt-2 shrink-0", config.dot)}></div>
-                        <h3 className="text-xl font-bold text-gray-900 leading-tight">{finding.title}</h3>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <span className={cn(
-                            "text-xs font-semibold px-3 py-1.5 rounded-lg border",
-                            confidenceBadge[finding.confidence].className
-                        )}>
-                            {confidenceBadge[finding.confidence].label}
-                        </span>
-                        <span className={cn(
-                            "text-xs font-semibold px-3 py-1.5 rounded-lg border",
-                            config.badge
-                        )}>
-                            {finding.impact.charAt(0).toUpperCase() + finding.impact.slice(1)} Impact
-                        </span>
+        <div className="rounded-xl overflow-hidden transition-all" style={{
+            background: 'var(--bg-elevated)',
+            border: `1px solid var(--border-default)`,
+            borderLeft: `4px solid ${config.color}`,
+            boxShadow: 'var(--shadow-md)'
+        }}>
+            {/* Header with severity indicator */}
+            <div className="border-b px-5 py-4 flex items-start justify-between gap-4" style={{
+                borderColor: 'var(--border-default)',
+                background: 'var(--bg-surface)'
+            }}>
+                <div className="flex items-start gap-4 flex-1">
+                    <div 
+                        className="w-1.5 h-full min-h-[56px] rounded-full shrink-0" 
+                        style={{ 
+                            backgroundColor: config.color,
+                            boxShadow: `0 0 10px ${config.color}`
+                        }}
+                    />
+                    <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                            {finding.title}
+                        </h3>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                            {finding.education.behavior}
+                        </p>
                     </div>
                 </div>
-                <p className="text-sm leading-relaxed text-gray-700 font-medium pl-5">
-                    {finding.education.behavior}
-                </p>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="badge" style={{
+                        background: config.bg,
+                        color: config.color,
+                        border: `1px solid ${config.border}`,
+                        fontSize: '11px',
+                        padding: '4px 10px'
+                    }}>
+                        {config.label.toUpperCase()}
+                    </span>
+                    <span className={cn(
+                        "text-xs px-2 py-1 rounded-md font-medium",
+                        finding.confidence === 'verified' && "bg-emerald-500/10 text-emerald-400",
+                        finding.confidence === 'inferred' && "text-blue-400",
+                        finding.confidence === 'educational' && "text-gray-400"
+                    )}>
+                        {finding.confidence}
+                    </span>
+                </div>
             </div>
-
-            {/* Evidence */}
-            <div className="space-y-3 pl-5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">Evidence</h4>
+            
+            <div className="p-5 space-y-4">
+                {/* Evidence Section */}
                 <div className="space-y-2">
-                    {finding.evidence.map((ev, i) => (
-                        <div key={i} className="bg-white/70 backdrop-blur-sm border border-gray-200/60 rounded-xl p-4 space-y-2 shadow-sm">
-                            <code className="text-xs font-mono block text-gray-900 font-semibold">
-                                {ev.rawText}
-                            </code>
-                            <p className="text-xs text-gray-600">
-                                {ev.location}
-                            </p>
+                    <button
+                        onClick={() => toggleSection('evidence')}
+                        className="w-full flex items-center justify-between text-left group"
+                    >
+                        <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Evidence</h4>
+                        <ChevronDown 
+                            className={cn(
+                                "w-4 h-4 transition-transform",
+                                expandedSections.evidence && "rotate-180"
+                            )} 
+                            style={{ color: 'var(--text-tertiary)' }} 
+                        />
+                    </button>
+                    {expandedSections.evidence && (
+                        <div className="space-y-2 animate-fadeIn">
+                        {finding.evidence.slice(0, 3).map((ev, i) => (
+                            <div 
+                                key={i} 
+                                className="rounded-lg px-4 py-3 border"
+                                style={{
+                                    background: 'var(--bg-input)',
+                                    borderColor: 'var(--border-default)'
+                                }}
+                            >
+                                <code className="text-sm font-mono block" style={{ color: 'var(--text-primary)' }}>
+                                    {ev.rawText}
+                                </code>
+                                <span className="text-xs mt-2 block" style={{ color: 'var(--text-muted)' }}>
+                                    {ev.location}
+                                </span>
+                            </div>
+                        ))}
+                            {finding.evidence.length > 3 && (
+                                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                                    +{finding.evidence.length - 3} additional occurrences
+                                </p>
+                            )}
                         </div>
-                    ))}
+                    )}
                 </div>
-            </div>
 
-            {/* Analysis */}
-            <div className="space-y-3 pl-5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">Analysis</h4>
-                <ul className="space-y-2.5 text-sm">
-                    {finding.education.explanation.map((item, i) => (
-                        <li key={i} className="flex gap-3">
-                            <span className="text-gray-400 mt-1.5 font-bold">·</span>
-                            <span className="flex-1 leading-relaxed text-gray-700">{item}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+                {/* Explanation Section */}
+                <div className="space-y-2">
+                    <button
+                        onClick={() => toggleSection('explanation')}
+                        className="w-full flex items-center justify-between text-left group"
+                    >
+                        <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Why This Matters</h4>
+                        <ChevronDown 
+                            className={cn(
+                                "w-4 h-4 transition-transform",
+                                expandedSections.explanation && "rotate-180"
+                            )} 
+                            style={{ color: 'var(--text-tertiary)' }} 
+                        />
+                    </button>
+                    {expandedSections.explanation && (
+                        <ul className="space-y-2 animate-fadeIn">
+                            {finding.education.explanation.map((item, i) => (
+                                <li key={i} className="text-sm leading-relaxed pl-5 relative" style={{ color: 'var(--text-secondary)' }}>
+                                    <span className="absolute left-0 top-[0.5em] w-2 h-2 rounded-full" style={{ background: config.color }} />
+                                    {item}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
 
-            {/* Limitations */}
-            <div className="space-y-3 pt-4 border-t border-gray-200/60 pl-5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">Limitations</h4>
-                <ul className="space-y-2 text-xs text-gray-600">
-                    {finding.education.limitations.map((lim, i) => (
-                        <li key={i} className="flex gap-2">
-                            <span className="text-gray-400">·</span>
-                            <span>{lim}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+                {/* What We Cannot Determine - EMPHASIZED */}
+                <div className="space-y-2">
+                    <button
+                        onClick={() => toggleSection('limitations')}
+                        className="w-full flex items-center justify-between text-left group"
+                    >
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" style={{ color: 'var(--accent-orange)' }} />
+                            <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent-orange)' }}>What We Cannot Determine</h4>
+                        </div>
+                        <ChevronDown 
+                            className={cn(
+                                "w-4 h-4 transition-transform",
+                                expandedSections.limitations && "rotate-180"
+                            )} 
+                            style={{ color: 'var(--text-tertiary)' }} 
+                        />
+                    </button>
+                    {expandedSections.limitations && (
+                        <div className="rounded-xl p-4 space-y-2 animate-fadeIn" style={{
+                            background: 'rgba(245, 158, 11, 0.05)',
+                            border: '1px solid rgba(245, 158, 11, 0.2)'
+                        }}>
+                            <ul className="space-y-1.5">
+                                {finding.education.limitations.map((lim, i) => (
+                                    <li key={i} className="text-sm pl-5 relative leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                        <span className="absolute left-0" style={{ color: 'var(--text-muted)' }}>—</span>
+                                        {lim}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
 
-            {/* Learn More */}
-            <div className="pt-2 pl-5">
-                <a
-                    href={finding.education.docsLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                    Read Documentation
-                    <ExternalLink className="w-4 h-4" />
-                </a>
+                {/* Action Buttons */}
+                <div className="pt-4 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: 'var(--border-default)' }}>
+                    <button
+                        onClick={() => handleCopy(finding.evidence[0]?.rawText || '')}
+                        className="btn-secondary"
+                    >
+                        {copied ? (
+                            <>
+                                <CheckCircle2 className="w-4 h-4" />
+                                Copied!
+                            </>
+                        ) : (
+                            <>
+                                <Copy className="w-4 h-4" />
+                                Copy Evidence
+                            </>
+                        )}
+                    </button>
+                    <a
+                        href={finding.education.docsLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                        View Docs
+                    </a>
+                </div>
             </div>
         </div>
     );

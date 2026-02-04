@@ -20,6 +20,21 @@ export class ParserManager {
 
         Logger.info('Parser', 'Parsing started', { length: trimmed.length });
 
+        // CRITICAL: Extract timing from original JSON BEFORE any processing
+        // This ensures we get the raw values without any PEV2 modifications
+        const rawTiming = this.extractTimingFromRawJson(trimmed);
+        
+        // DEBUG: Console output for verification
+        console.log('=== PARSER DEBUG ===');
+        console.log('Extracted executionTime:', rawTiming.executionTime);
+        console.log('Extracted planningTime:', rawTiming.planningTime);
+        console.log('===================');
+        
+        Logger.debug('Parser', 'Raw timing extraction', {
+            executionTime: rawTiming.executionTime,
+            planningTime: rawTiming.planningTime
+        });
+
         // Try PEV2 worker first
         try {
             const result = await this.parseWithWorker(trimmed, 10000);
@@ -27,26 +42,113 @@ export class ParserManager {
             if (result.ok && result.plan) {
                 // PEV2 returns IPlan structure - extract the actual plan tree
                 const planTree = this.extractPlanTree(result.plan);
-                const executionTime = this.extractExecutionTime(result.plan);
-                const planningTime = this.extractPlanningTime(result.plan);
+                
+                // PEV2 doesn't extract triggers from TEXT format - do it ourselves
+                if (planTree && !planTree['Triggers']) {
+                    const triggers = this.extractTriggersFromText(trimmed);
+                    if (triggers.length > 0) {
+                        planTree['Triggers'] = triggers;
+                    }
+                }
+                
+                // PEV2 doesn't extract JIT from TEXT format - do it ourselves
+                if (planTree && !planTree['JIT']) {
+                    const jit = this.extractJITFromText(trimmed);
+                    if (jit) {
+                        planTree['JIT'] = jit;
+                    }
+                }
 
                 Logger.info('Parser', 'Worker parsing successful', { 
                     time: performance.now() - start,
-                    hasContent: !!planTree 
+                    hasContent: !!planTree,
+                    executionTime: rawTiming.executionTime,
+                    planningTime: rawTiming.planningTime
                 });
                 
                 return {
                     source: 'pev2',
                     plan: planTree,
                     analysisTimeMs: performance.now() - start,
-                    executionTimeMs: executionTime,
-                    planningTimeMs: planningTime
+                    executionTimeMs: rawTiming.executionTime,
+                    planningTimeMs: rawTiming.planningTime
                 };
             }
             throw new Error('PEV2 returned invalid result');
         } catch (err: any) {
             Logger.warn('Parser', 'Worker parsing failed. Falling back.', { error: err.message });
             return this.fallbackParse(trimmed, start);
+        }
+    }
+
+    /**
+     * Extract timing values directly from raw text (JSON or TEXT format)
+     * This bypasses PEV2 processing to get accurate timing data
+     */
+    private extractTimingFromRawJson(text: string): { executionTime: number | null; planningTime: number | null } {
+        let executionTime: number | null = null;
+        let planningTime: number | null = null;
+
+        // Try TEXT format first (lines like "Planning Time: 12.450 ms")
+        const planningTextMatch = text.match(/^\s*Planning Time:\s*([\d.]+)\s*ms/im);
+        if (planningTextMatch) {
+            planningTime = parseFloat(planningTextMatch[1]);
+        }
+        
+        const executionTextMatch = text.match(/^\s*Execution Time:\s*([\d.]+)\s*ms/im);
+        if (executionTextMatch) {
+            executionTime = parseFloat(executionTextMatch[1]);
+        }
+
+        // If we found timing from text format, return early
+        if (executionTime !== null || planningTime !== null) {
+            return { executionTime, planningTime };
+        }
+
+        try {
+            // Clean up the text for JSON parsing
+            let cleaned = text.trim();
+            cleaned = cleaned.replace(/^\s*QUERY PLAN\s*[-=]*\s*\n/im, '');
+            cleaned = cleaned.replace(/\n?\s*\(\d+\s+rows?\)\s*$/i, '');
+            cleaned = cleaned.replace(/""/g, '"');
+
+            // Find JSON
+            const jsonMatch = cleaned.match(/[\[\{][\s\S]*[\]\}]/);
+            if (!jsonMatch) {
+                return { executionTime, planningTime };
+            }
+
+            const parsed = JSON.parse(jsonMatch[0]);
+            const root = Array.isArray(parsed) ? parsed[0] : parsed;
+
+            // Standard format: timing at root level
+            if (typeof root['Execution Time'] === 'number') {
+                executionTime = root['Execution Time'];
+            }
+            if (typeof root['Planning Time'] === 'number') {
+                planningTime = root['Planning Time'];
+            }
+
+            // Non-standard: timing inside Plan object
+            const plan = root.Plan || root.plan || root;
+            if (executionTime === null && typeof plan['Actual Total Time'] === 'number') {
+                executionTime = plan['Actual Total Time'];
+            }
+            if (planningTime === null && typeof plan['Planning Time'] === 'number') {
+                planningTime = plan['Planning Time'];
+            }
+
+            Logger.debug('Parser', 'extractTimingFromRawJson result', {
+                executionTime,
+                planningTime,
+                rootKeys: Object.keys(root),
+                planKeys: plan ? Object.keys(plan).slice(0, 10) : []
+            });
+
+            return { executionTime, planningTime };
+        } catch (err) {
+            Logger.warn('Parser', 'Failed to extract timing from raw JSON', { error: (err as Error).message });
+            return { executionTime: null, planningTime: null };
         }
     }
 
@@ -116,20 +218,39 @@ export class ParserManager {
 
     /**
      * Extract planning time from various plan formats
+     * PostgreSQL EXPLAIN JSON can have Planning Time at root level OR inside Plan object
      */
     private extractPlanningTime(data: any): number | null {
         if (!data) return null;
 
+        // Direct property at root level (standard format)
         if (typeof data['Planning Time'] === 'number') {
             return data['Planning Time'];
         }
 
-        if (data.content?.['Planning Time'] !== undefined) {
+        // PEV2 content structure
+        if (typeof data.content?.['Planning Time'] === 'number') {
             return data.content['Planning Time'];
         }
 
-        if (Array.isArray(data) && data[0]?.['Planning Time'] !== undefined) {
-            return data[0]['Planning Time'];
+        // Inside Plan object (some EXPLAIN formats)
+        if (typeof data.Plan?.['Planning Time'] === 'number') {
+            return data.Plan['Planning Time'];
+        }
+
+        // Inside content.Plan (PEV2 with nested Plan)
+        if (typeof data.content?.Plan?.['Planning Time'] === 'number') {
+            return data.content.Plan['Planning Time'];
+        }
+
+        // Array format
+        if (Array.isArray(data)) {
+            if (typeof data[0]?.['Planning Time'] === 'number') {
+                return data[0]['Planning Time'];
+            }
+            if (typeof data[0]?.Plan?.['Planning Time'] === 'number') {
+                return data[0].Plan['Planning Time'];
+            }
         }
 
         return null;
@@ -194,13 +315,16 @@ export class ParserManager {
         // Try text format parsing
         const textResult = this.tryTextParse(text);
         if (textResult) {
-            Logger.info('Parser', 'Fallback text parse successful');
+            Logger.info('Parser', 'Fallback text parse successful', {
+                executionTime: textResult.executionTime,
+                planningTime: textResult.planningTime
+            });
             return {
                 source: 'fallback',
-                plan: textResult,
+                plan: textResult.plan,
                 analysisTimeMs: performance.now() - startTime,
-                executionTimeMs: null,
-                planningTimeMs: null
+                executionTimeMs: textResult.executionTime,
+                planningTimeMs: textResult.planningTime
             };
         }
 
@@ -257,10 +381,14 @@ export class ParserManager {
 
             if (!plan) return null;
 
+            // Planning Time and Execution Time can be at root OR inside Plan
+            const planningTime = root['Planning Time'] ?? plan['Planning Time'] ?? null;
+            const executionTime = root['Execution Time'] ?? plan['Actual Total Time'] ?? null;
+            
             return {
                 plan,
-                executionTime: root['Execution Time'] ?? null,
-                planningTime: root['Planning Time'] ?? null
+                executionTime,
+                planningTime
             };
         } catch {
             return null;
@@ -270,7 +398,7 @@ export class ParserManager {
     /**
      * Parse text format EXPLAIN output
      */
-    private tryTextParse(text: string): any | null {
+    private tryTextParse(text: string): { plan: any; executionTime: number | null; planningTime: number | null } | null {
         const lines = text.split('\n').filter(l => l.trim());
         if (lines.length === 0) return null;
 
@@ -280,9 +408,27 @@ export class ParserManager {
         
         if (!hasNodes) return null;
 
+        // Extract Planning Time and Execution Time from text format
+        // Format: "Planning Time: 12.450 ms" or "Execution Time: 8560.125 ms"
+        let planningTime: number | null = null;
+        let executionTime: number | null = null;
+        
+        for (const line of lines) {
+            const planningMatch = line.match(/^\s*Planning Time:\s*([\d.]+)\s*ms/i);
+            if (planningMatch) {
+                planningTime = parseFloat(planningMatch[1]);
+            }
+            
+            const executionMatch = line.match(/^\s*Execution Time:\s*([\d.]+)\s*ms/i);
+            if (executionMatch) {
+                executionTime = parseFloat(executionMatch[1]);
+            }
+        }
+
         // Build a simplified tree from text format
-        const root = this.parseTextNode(lines, 0);
-        return root;
+        const plan = this.parseTextNode(lines, 0);
+        
+        return { plan, executionTime, planningTime };
     }
 
     /**
@@ -320,12 +466,26 @@ export class ParserManager {
             node["Plan Width"] = parseInt(costMatch[4]);
         }
 
+        // Standard format: actual time=X..Y rows=N loops=M
         const actualMatch = line.match(/actual time=([\d.]+)\.\.([\d.]+)\s+rows=(\d+)\s+loops=(\d+)/i);
         if (actualMatch) {
             node["Actual Startup Time"] = parseFloat(actualMatch[1]);
             node["Actual Total Time"] = parseFloat(actualMatch[2]);
             node["Actual Rows"] = parseInt(actualMatch[3]);
             node["Actual Loops"] = parseInt(actualMatch[4]);
+        } else {
+            // Abbreviated format: actual time... rows=N loops=M (or with custom annotations)
+            const abbreviatedMatch = line.match(/actual time[^)]*rows=(\d+)\s+loops=(\d+)/i);
+            if (abbreviatedMatch) {
+                node["Actual Rows"] = parseInt(abbreviatedMatch[1]);
+                node["Actual Loops"] = parseInt(abbreviatedMatch[2]);
+            }
+            
+            // Try to extract time from annotations like [EXECUTED - 8.4s]
+            const annotationTimeMatch = line.match(/\[EXECUTED\s*-\s*([\d.]+)s\]/i);
+            if (annotationTimeMatch) {
+                node["Actual Total Time"] = parseFloat(annotationTimeMatch[1]) * 1000; // Convert to ms
+            }
         }
 
         // Check for "never executed"
@@ -374,6 +534,28 @@ export class ParserManager {
 
         if (children.length > 0) {
             node["Plans"] = children;
+        }
+
+        // Continue parsing property lines after children (for Triggers section)
+        // Triggers appear after Plans in text format
+        while (i < lines.length) {
+            const nextLine = lines[i];
+            const nextIndent = nextLine.search(/\S/);
+            
+            // Stop if we hit lower indent (back to parent level)
+            if (nextIndent < indent) {
+                break;
+            }
+            
+            // Skip "Triggers:" header line
+            if (nextLine.trim() === 'Triggers:') {
+                i++;
+                continue;
+            }
+            
+            // Parse trigger and other property lines
+            this.parsePropertyLine(nextLine, node);
+            i++;
         }
 
         return node;
@@ -472,6 +654,20 @@ export class ParserManager {
             node["Rows Removed by Join Filter"] = parseInt(joinFilterMatch[1]);
             return;
         }
+
+        // Trigger line format: "trigger_name: time=XXX.XXX calls=N"
+        const triggerMatch = trimmed.match(/^(\w+):\s*time=([\d.]+)\s+calls=(\d+)/i);
+        if (triggerMatch) {
+            if (!node["Triggers"]) {
+                node["Triggers"] = [];
+            }
+            node["Triggers"].push({
+                "Trigger Name": triggerMatch[1],
+                "Time": parseFloat(triggerMatch[2]),
+                "Calls": parseInt(triggerMatch[3])
+            });
+            return;
+        }
     }
 
     private parseBuffers(bufferStr: string, node: any): void {
@@ -499,5 +695,92 @@ export class ParserManager {
             }
         }
         return lines.length;
+    }
+
+    /**
+     * Extract triggers from TEXT format EXPLAIN output
+     * Format: "trigger_name: time=XXX.XXX calls=N"
+     */
+    private extractTriggersFromText(text: string): any[] {
+        const triggers: any[] = [];
+        const lines = text.split('\n');
+        
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // Match: trigger_name: time=XXX.XXX calls=N
+            const match = trimmed.match(/^(\w+):\s*time=([\d.]+)\s+calls=(\d+)/i);
+            if (match) {
+                triggers.push({
+                    "Trigger Name": match[1],
+                    "Time": parseFloat(match[2]),
+                    "Calls": parseInt(match[3])
+                });
+            }
+        }
+        
+        return triggers;
+    }
+
+    /**
+     * Extract JIT information from TEXT format EXPLAIN output
+     * Format:
+     *   JIT:
+     *     Functions: 12
+     *     Options: Inlining true, Optimization true, Expressions true, Deforming true
+     *     Timing: Generation 45.230 ms, Inlining 125.450 ms, Optimization 450.125 ms, Emission 89.230 ms, Total 710.035 ms
+     */
+    private extractJITFromText(text: string): any | null {
+        const lines = text.split('\n');
+        let inJIT = false;
+        const jit: any = {};
+        
+        for (const line of lines) {
+            const trimmed = line.trim();
+            
+            if (trimmed === 'JIT:') {
+                inJIT = true;
+                continue;
+            }
+            
+            if (!inJIT) continue;
+            
+            // Exit JIT section on non-indented line or new section
+            if (!line.match(/^\s+/) && trimmed !== '') {
+                break;
+            }
+            
+            // Functions: N
+            const functionsMatch = trimmed.match(/^Functions:\s*(\d+)/i);
+            if (functionsMatch) {
+                jit['Functions'] = parseInt(functionsMatch[1]);
+                continue;
+            }
+            
+            // Options: Inlining true, Optimization true, ...
+            const optionsMatch = trimmed.match(/^Options:\s*(.+)/i);
+            if (optionsMatch) {
+                jit['Options'] = optionsMatch[1];
+                continue;
+            }
+            
+            // Timing: Generation X ms, Inlining X ms, Optimization X ms, Emission X ms, Total X ms
+            const timingMatch = trimmed.match(/^Timing:\s*Generation\s+([\d.]+)\s*ms.*Inlining\s+([\d.]+)\s*ms.*Optimization\s+([\d.]+)\s*ms.*Emission\s+([\d.]+)\s*ms.*Total\s+([\d.]+)\s*ms/i);
+            if (timingMatch) {
+                jit['Timing'] = {
+                    'Generation': parseFloat(timingMatch[1]),
+                    'Inlining': parseFloat(timingMatch[2]),
+                    'Optimization': parseFloat(timingMatch[3]),
+                    'Emission': parseFloat(timingMatch[4]),
+                    'Total': parseFloat(timingMatch[5])
+                };
+                continue;
+            }
+        }
+        
+        // Only return if we found meaningful JIT data
+        if (jit['Functions'] || jit['Timing']) {
+            return jit;
+        }
+        return null;
     }
 }
