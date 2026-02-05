@@ -36,7 +36,8 @@ import { useState, useEffect } from "react";
 import { 
     Loader2, Shield, Database, Clock, ChevronRight, ChevronDown, ChevronLeft,
     FileJson, FileText, Sparkles, Copy, Play,
-    AlertCircle, AlertTriangle, Info, CheckCircle2, TrendingUp, Activity
+    AlertCircle, AlertTriangle, Info, CheckCircle2, TrendingUp, Activity,
+    Menu, X, BarChart3
 } from "lucide-react";
 
 export default function Home() {
@@ -55,6 +56,8 @@ export default function Home() {
         medium: false,
         low: false
     });
+    const [showMobileHistory, setShowMobileHistory] = useState(false);
+    const [showMobileResults, setShowMobileResults] = useState(false);
 
     useEffect(() => {
         loadHistory();
@@ -79,22 +82,31 @@ export default function Home() {
     return (
         <div className="h-screen flex flex-col" style={{ background: 'var(--bg-app)' }}>
             {/* Header Bar */}
-            <header className="h-16 border-b flex items-center px-6 shrink-0" style={{ 
+            <header className="h-14 md:h-16 border-b flex items-center px-3 md:px-6 shrink-0" style={{ 
                 borderColor: 'var(--border-default)',
                 background: 'linear-gradient(to right, #0a0e14, #0f1419)',
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
             }}>
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{
+                {/* Mobile menu button */}
+                <button 
+                    onClick={() => setShowMobileHistory(!showMobileHistory)}
+                    className="md:hidden p-2 mr-2 rounded-lg"
+                    style={{ background: 'var(--bg-elevated)' }}
+                >
+                    <Menu className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                </button>
+                
+                <div className="flex items-center gap-2 md:gap-3">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center" style={{
                         background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
                         boxShadow: '0 0 30px rgba(6, 182, 212, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)'
                     }}>
-                        <Database className="w-5 h-5 text-white" />
+                        <Database className="w-4 h-4 md:w-5 md:h-5 text-white" />
                     </div>
                     <div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-xl font-bold gradient-text-cyan">PlanCheck</span>
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ 
+                        <div className="flex items-baseline gap-1 md:gap-2">
+                            <span className="text-lg md:text-xl font-bold gradient-text-cyan">PlanCheck</span>
+                            <span className="hidden sm:inline text-xs font-semibold px-2 py-0.5 rounded-full" style={{ 
                                 background: 'rgba(6, 182, 212, 0.2)',
                                 color: 'var(--accent-cyan)',
                                 border: '1px solid rgba(6, 182, 212, 0.3)'
@@ -105,11 +117,26 @@ export default function Home() {
                                 border: '1px solid rgba(245, 158, 11, 0.4)'
                             }}>BETA</span>
                         </div>
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>PostgreSQL EXPLAIN Analyzer</span>
+                        <span className="hidden md:block text-xs" style={{ color: 'var(--text-tertiary)' }}>PostgreSQL EXPLAIN Analyzer</span>
                     </div>
                 </div>
                 <div className="flex-1" />
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{
+                
+                {/* Mobile results button */}
+                {hasResult && (
+                    <button 
+                        onClick={() => setShowMobileResults(true)}
+                        className="md:hidden flex items-center gap-1 px-2 py-1.5 rounded-lg mr-2"
+                        style={{ background: 'rgba(6, 182, 212, 0.2)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
+                    >
+                        <BarChart3 className="w-4 h-4" style={{ color: 'var(--accent-cyan)' }} />
+                        <span className="text-xs font-medium" style={{ color: 'var(--accent-cyan)' }}>
+                            {result.findings.length}
+                        </span>
+                    </button>
+                )}
+                
+                <div className="hidden sm:flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg" style={{
                     background: 'rgba(16, 185, 129, 0.1)',
                     border: '1px solid rgba(16, 185, 129, 0.2)'
                 }}>
@@ -119,9 +146,22 @@ export default function Home() {
             </header>
 
             {/* Main Three-Column Layout */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* Mobile History Overlay */}
+                {showMobileHistory && (
+                    <div 
+                        className="md:hidden fixed inset-0 bg-black/50 z-40"
+                        onClick={() => setShowMobileHistory(false)}
+                    />
+                )}
+                
                 {/* LEFT SIDEBAR - History */}
-                <aside className="w-[280px] border-r flex flex-col" style={{
+                <aside className={cn(
+                    "w-[280px] border-r flex flex-col z-50",
+                    "fixed md:relative inset-y-0 left-0",
+                    "transition-transform duration-300 ease-in-out",
+                    showMobileHistory ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+                )} style={{
                     borderColor: 'var(--border-default)',
                     background: 'var(--bg-surface)'
                 }}>
@@ -132,7 +172,14 @@ export default function Home() {
                             <span className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Plan History</span>
                         </div>
                         <button 
-                            className="p-1 rounded"
+                            onClick={() => setShowMobileHistory(false)}
+                            className="p-1 rounded md:hidden"
+                            style={{ background: 'var(--bg-elevated)' }}
+                        >
+                            <X className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                        </button>
+                        <button 
+                            className="p-1 rounded hidden md:block"
                             onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
@@ -290,14 +337,15 @@ export default function Home() {
                         
                         <button 
                             onClick={() => setInputText(EXAMPLE_PLAN)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
+                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
                             style={{
                                 background: 'var(--bg-elevated)',
                                 color: 'var(--text-secondary)'
                             }}
+                            title="Paste Example"
                         >
                             <Sparkles className="w-3 h-3" />
-                            Paste Example
+                            <span className="hidden sm:inline">Paste Example</span>
                         </button>
                         <button 
                             onClick={() => {
@@ -308,27 +356,29 @@ export default function Home() {
                                     // Not valid JSON, ignore
                                 }
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
+                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
                             style={{
                                 background: 'var(--bg-elevated)',
                                 color: 'var(--text-secondary)'
                             }}
+                            title="Beautify JSON"
                         >
                             <Sparkles className="w-3 h-3" />
-                            Beautify
+                            <span className="hidden sm:inline">Beautify</span>
                         </button>
                         <button 
                             onClick={() => {
                                 navigator.clipboard.writeText(inputText);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
+                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
                             style={{
                                 background: 'var(--bg-elevated)',
                                 color: 'var(--text-secondary)'
                             }}
+                            title="Copy to clipboard"
                         >
                             <Copy className="w-3 h-3" />
-                            Copy
+                            <span className="hidden sm:inline">Copy</span>
                         </button>
                     </div>
                     
@@ -343,8 +393,8 @@ export default function Home() {
                     </div>
                     
                     {/* Bottom bar */}
-                    <div className="border-t px-4 py-2 flex items-center justify-between" style={{ borderColor: 'var(--border-default)' }}>
-                        <div className="flex items-center gap-2 text-xs" style={{ color: '#6b7280' }}>
+                    <div className="border-t px-3 md:px-4 py-2 flex items-center justify-between gap-2" style={{ borderColor: 'var(--border-default)' }}>
+                        <div className="hidden md:flex items-center gap-2 text-xs" style={{ color: '#6b7280' }}>
                             <span style={{ opacity: 0.8 }}>Tip:</span>
                             <code className="px-1.5 py-0.5 rounded text-[11px] font-mono" style={{ 
                                 background: 'var(--bg-surface)', 
@@ -356,10 +406,15 @@ export default function Home() {
                             <span style={{ opacity: 0.8 }}>for best results</span>
                         </div>
                         
+                        {/* Mobile: Character count */}
+                        <div className="md:hidden text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {inputText.length > 0 && `${inputText.length} chars`}
+                        </div>
+                        
                         <button
-                            onClick={handleAnalyze}
+                            onClick={() => { handleAnalyze(); setShowMobileResults(true); }}
                             disabled={!inputText.trim() || isAnalyzing}
-                            className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-base transition-all"
+                            className="flex items-center gap-2 px-4 md:px-8 py-2 md:py-3 rounded-xl font-bold text-sm md:text-base transition-all flex-shrink-0"
                             style={{
                                 background: inputText.trim() ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'var(--bg-elevated)',
                                 color: inputText.trim() ? 'white' : 'var(--text-muted)',
@@ -395,17 +450,44 @@ export default function Home() {
                     </div>
                 </div>
 
+                {/* Mobile Results Overlay */}
+                {showMobileResults && (
+                    <div 
+                        className="md:hidden fixed inset-0 bg-black/50 z-40"
+                        onClick={() => setShowMobileResults(false)}
+                    />
+                )}
+
                 {/* RIGHT PANEL - Analysis Results */}
                 {hasResult && (
-                    <aside className="w-[480px] border-l flex flex-col" style={{
+                    <aside className={cn(
+                        "w-full md:w-[420px] lg:w-[480px] border-l flex flex-col z-50",
+                        "fixed md:relative inset-x-0 bottom-0 md:inset-auto",
+                        "max-h-[85vh] md:max-h-none",
+                        "rounded-t-2xl md:rounded-none",
+                        "transition-transform duration-300 ease-in-out",
+                        showMobileResults ? "translate-y-0" : "translate-y-full md:translate-y-0"
+                    )} style={{
                         borderColor: 'var(--border-default)',
                         background: 'var(--bg-surface)'
                     }}>
+                        {/* Mobile drag handle */}
+                        <div className="md:hidden flex justify-center py-2">
+                            <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border-default)' }} />
+                        </div>
+                        
                         {/* Header with metrics */}
-                        <div className="p-6 border-b space-y-4" style={{ borderColor: 'var(--border-default)' }}>
+                        <div className="p-4 md:p-6 border-b space-y-3 md:space-y-4" style={{ borderColor: 'var(--border-default)' }}>
                             <div className="flex items-center justify-between">
-                                <span className="text-xl font-bold" style={{ color: 'var(--accent-cyan)' }}>Analysis Results</span>
-                                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>#{result.parsedPlan?.['Node Type'] || 'Plan'}</span>
+                                <span className="text-lg md:text-xl font-bold" style={{ color: 'var(--accent-cyan)' }}>Analysis Results</span>
+                                <button 
+                                    onClick={() => setShowMobileResults(false)}
+                                    className="md:hidden p-1 rounded"
+                                    style={{ background: 'var(--bg-elevated)' }}
+                                >
+                                    <X className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+                                </button>
+                                <span className="hidden md:inline text-sm" style={{ color: 'var(--text-tertiary)' }}>#{result.parsedPlan?.['Node Type'] || 'Plan'}</span>
                             </div>
                             
                             {/* Metrics row - compact layout */}
