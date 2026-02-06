@@ -393,7 +393,7 @@ export default function Home() {
                     </div>
                     
                     {/* Bottom bar */}
-                    <div className="border-t px-3 md:px-4 py-2 flex items-center justify-between gap-2" style={{ borderColor: 'var(--border-default)' }}>
+                    <div className="border-t px-3 md:px-4 py-3 md:py-2 flex items-center justify-between gap-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }}>
                         <div className="hidden md:flex items-center gap-2 text-xs" style={{ color: '#6b7280' }}>
                             <span style={{ opacity: 0.8 }}>Tip:</span>
                             <code className="px-1.5 py-0.5 rounded text-[11px] font-mono" style={{ 
@@ -408,13 +408,13 @@ export default function Home() {
                         
                         {/* Mobile: Character count */}
                         <div className="md:hidden text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {inputText.length > 0 && `${inputText.length} chars`}
+                            {inputText.length} chars
                         </div>
                         
                         <button
                             onClick={() => { handleAnalyze(); setShowMobileResults(true); }}
                             disabled={!inputText.trim() || isAnalyzing}
-                            className="flex items-center gap-2 px-4 md:px-8 py-2 md:py-3 rounded-xl font-bold text-sm md:text-base transition-all flex-shrink-0"
+                            className="flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-bold text-sm md:text-base transition-all"
                             style={{
                                 background: inputText.trim() ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'var(--bg-elevated)',
                                 color: inputText.trim() ? 'white' : 'var(--text-muted)',
@@ -826,16 +826,16 @@ export default function Home() {
             </div>
             
             {/* Footer with Attribution */}
-            <footer className="h-10 border-t flex items-center justify-center gap-6 px-6 shrink-0" style={{ 
+            <footer className="h-10 border-t flex items-center justify-center gap-3 md:gap-6 px-3 md:px-6 shrink-0" style={{ 
                 borderColor: 'var(--border-default)',
                 background: 'var(--bg-surface)'
             }}>
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     © 2026 PlanCheck
                 </span>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
-                {/* Privacy with tooltip */}
-                <div className="relative group">
+                <span className="hidden md:inline text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
+                {/* Privacy with tooltip - hidden on mobile */}
+                <div className="relative group hidden md:block">
                     <button className="flex items-center gap-1 text-xs hover:underline" style={{ color: 'var(--accent-green)' }}>
                         <Shield className="w-3 h-3" />
                         Privacy
@@ -855,20 +855,25 @@ export default function Home() {
                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2" style={{ background: 'var(--bg-elevated)', borderRight: '1px solid var(--border-default)', borderBottom: '1px solid var(--border-default)' }} />
                     </div>
                 </div>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
+                {/* Mobile: Simple privacy indicator */}
+                <div className="md:hidden flex items-center gap-1 text-xs" style={{ color: 'var(--accent-green)' }}>
+                    <Shield className="w-3 h-3" />
+                    <span>Private</span>
+                </div>
+                <span className="hidden md:inline text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
                 <a 
                     href="https://github.com/dalibo/pev2" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs hover:underline"
+                    className="hidden md:inline text-xs hover:underline"
                     style={{ color: 'var(--accent-cyan)' }}
                 >
                     Powered by PEV2
                 </a>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
+                <span className="hidden md:inline text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
                 <a 
                     href="mailto:contact@plancheck.dev"
-                    className="text-xs hover:underline"
+                    className="hidden md:inline text-xs hover:underline"
                     style={{ color: 'var(--text-secondary)' }}
                 >
                     contact@plancheck.dev
