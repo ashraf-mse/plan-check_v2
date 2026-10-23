@@ -1,879 +1,157 @@
-"use client";
-
-const EXAMPLE_PLAN = `[
-  {
-    "Plan": {
-      "Node Type": "Seq Scan",
-      "Parallel Aware": false,
-      "Async Capable": false,
-      "Relation Name": "orders",
-      "Alias": "orders",
-      "Startup Cost": 0.00,
-      "Total Cost": 25000.00,
-      "Plan Rows": 500000,
-      "Plan Width": 48,
-      "Actual Startup Time": 0.015,
-      "Actual Total Time": 1245.832,
-      "Actual Rows": 156,
-      "Actual Loops": 1,
-      "Filter": "(customer_id = 42)",
-      "Rows Removed by Filter": 987542
-    },
-    "Planning Time": 0.125,
-    "Execution Time": 1289.456,
-    "Triggers": []
-  }
-]`;
-
-import { useAnalysisStore } from "@/store/useAnalysisStore";
-import { FindingCard } from "@/components/analysis/FindingCard";
-import { PlanTree } from "@/components/analysis/PlanTree";
-import { CodeEditor } from "@/components/ui/CodeEditor";
-import { LoadingState, SkeletonCard } from "@/components/ui/LoadingState";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { 
-    Loader2, Shield, Database, Clock, ChevronRight, ChevronDown, ChevronLeft,
-    FileJson, FileText, Sparkles, Copy, Play,
-    AlertCircle, AlertTriangle, Info, CheckCircle2, TrendingUp, Activity,
-    Menu, X, BarChart3
+import Link from "next/link";
+import {
+  ArrowRight, CheckCircle2, Database, GitCompareArrows, LockKeyhole,
+  ScanSearch, ShieldCheck, TerminalSquare, Zap, Search, Gauge, BrainCircuit
 } from "lucide-react";
 
-export default function Home() {
-    const {
-        analyze, status, result, error, clear,
-        history, loadHistory, deleteFromHistory, setResult
-    } = useAnalysisStore();
+const detectors = [
+  "Sequential scan waste","Row-estimate mismatch","Nested-loop amplification",
+  "Disk sort spills","Hash memory pressure","Bitmap rechecks",
+  "Ineffective LIMITs","Heap fetch overhead","Join-filter waste",
+  "CTE materialization","Trigger overhead","JIT overhead",
+  "Parallel-query issues","Recursive explosions","Missing-index signals","Sort memory pressure"
+];
 
-    const [inputText, setInputText] = useState("");
-    const [activeTab, setActiveTab] = useState<'json' | 'text'>('json');
-    const [activeResultTab, setActiveResultTab] = useState<'findings' | 'tree'>('findings');
-    const [filterSeverity, setFilterSeverity] = useState<'all' | 'critical' | 'high' | 'medium'>('all');
-    const [expandedSeverity, setExpandedSeverity] = useState<{[key: string]: boolean}>({
-        critical: true,
-        high: true,
-        medium: false,
-        low: false
-    });
-    const [showMobileHistory, setShowMobileHistory] = useState(false);
-    const [showMobileResults, setShowMobileResults] = useState(false);
+const guides = [
+  ["Rows Removed by Filter","/postgresql-explain/rows-removed-by-filter"],
+  ["Sequential Scan","/postgresql-explain/sequential-scan"],
+  ["Row Estimate Mismatch","/postgresql-explain/row-estimate-mismatch"],
+  ["Nested Loop","/postgresql-explain/nested-loop"],
+  ["Disk Sort Spill","/postgresql-explain/disk-sort"],
+];
 
-    useEffect(() => {
-        loadHistory();
-    }, [loadHistory]);
+export default function HomePage() {
+  return (
+    <main className="min-h-screen bg-[#071015] text-slate-100">
+      <div className="absolute inset-x-0 top-0 h-[680px] bg-[radial-gradient(circle_at_50%_-20%,rgba(34,211,238,.22),transparent_42%),radial-gradient(circle_at_85%_20%,rgba(139,92,246,.12),transparent_30%)] pointer-events-none" />
 
-    const handleAnalyze = async () => {
-        if (!inputText.trim()) return;
-        await analyze(inputText);
-    };
-
-    const hasResult = status === 'complete' && result;
-    const isAnalyzing = status === 'parsing';
-    
-    // Group findings by severity
-    const groupedFindings = hasResult ? {
-        critical: result.findings.filter((f: any) => f.impact === 'high' && f.confidence === 'verified'),
-        high: result.findings.filter((f: any) => f.impact === 'high' && f.confidence !== 'verified'),
-        medium: result.findings.filter((f: any) => f.impact === 'medium'),
-        low: result.findings.filter((f: any) => f.impact === 'low')
-    } : { critical: [], high: [], medium: [], low: [] };
-
-    return (
-        <div className="h-screen flex flex-col" style={{ background: 'var(--bg-app)' }}>
-            {/* Header Bar */}
-            <header className="h-14 md:h-16 border-b flex items-center px-3 md:px-6 shrink-0" style={{ 
-                borderColor: 'var(--border-default)',
-                background: 'linear-gradient(to right, #0a0e14, #0f1419)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-            }}>
-                {/* Mobile menu button */}
-                <button 
-                    onClick={() => setShowMobileHistory(!showMobileHistory)}
-                    className="md:hidden p-2 mr-2 rounded-lg"
-                    style={{ background: 'var(--bg-elevated)' }}
-                >
-                    <Menu className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
-                </button>
-                
-                <div className="flex items-center gap-2 md:gap-3">
-                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center" style={{
-                        background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
-                        boxShadow: '0 0 30px rgba(6, 182, 212, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)'
-                    }}>
-                        <Database className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                    </div>
-                    <div>
-                        <div className="flex items-baseline gap-1 md:gap-2">
-                            <span className="text-lg md:text-xl font-bold gradient-text-cyan">PlanCheck</span>
-                            <span className="hidden sm:inline text-xs font-semibold px-2 py-0.5 rounded-full" style={{ 
-                                background: 'rgba(6, 182, 212, 0.2)',
-                                color: 'var(--accent-cyan)',
-                                border: '1px solid rgba(6, 182, 212, 0.3)'
-                            }}>v2</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ 
-                                background: 'rgba(245, 158, 11, 0.2)',
-                                color: '#f59e0b',
-                                border: '1px solid rgba(245, 158, 11, 0.4)'
-                            }}>BETA</span>
-                        </div>
-                        <span className="hidden md:block text-xs" style={{ color: 'var(--text-tertiary)' }}>PostgreSQL EXPLAIN Analyzer</span>
-                    </div>
-                </div>
-                <div className="flex-1" />
-                
-                {/* Mobile results button */}
-                {hasResult && (
-                    <button 
-                        onClick={() => setShowMobileResults(true)}
-                        className="md:hidden flex items-center gap-1 px-2 py-1.5 rounded-lg mr-2"
-                        style={{ background: 'rgba(6, 182, 212, 0.2)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
-                    >
-                        <BarChart3 className="w-4 h-4" style={{ color: 'var(--accent-cyan)' }} />
-                        <span className="text-xs font-medium" style={{ color: 'var(--accent-cyan)' }}>
-                            {result.findings.length}
-                        </span>
-                    </button>
-                )}
-                
-                <div className="hidden sm:flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg" style={{
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)'
-                }}>
-                    <Shield className="w-4 h-4" style={{ color: 'var(--accent-green)' }} />
-                    <span className="text-xs font-medium" style={{ color: 'var(--accent-green)' }}>100% Client-Side</span>
-                </div>
-            </header>
-
-            {/* Main Three-Column Layout */}
-            <div className="flex-1 flex overflow-hidden relative">
-                {/* Mobile History Overlay */}
-                {showMobileHistory && (
-                    <div 
-                        className="md:hidden fixed inset-0 bg-black/50 z-40"
-                        onClick={() => setShowMobileHistory(false)}
-                    />
-                )}
-                
-                {/* LEFT SIDEBAR - History */}
-                <aside className={cn(
-                    "w-[280px] border-r flex flex-col z-50",
-                    "fixed md:relative inset-y-0 left-0",
-                    "transition-transform duration-300 ease-in-out",
-                    showMobileHistory ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-                )} style={{
-                    borderColor: 'var(--border-default)',
-                    background: 'var(--bg-surface)'
-                }}>
-                    {/* History Header */}
-                    <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-default)' }}>
-                        <div className="flex items-center gap-3">
-                            <Clock className="w-5 h-5" style={{ color: 'var(--accent-cyan)' }} />
-                            <span className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Plan History</span>
-                        </div>
-                        <button 
-                            onClick={() => setShowMobileHistory(false)}
-                            className="p-1 rounded md:hidden"
-                            style={{ background: 'var(--bg-elevated)' }}
-                        >
-                            <X className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                        </button>
-                        <button 
-                            className="p-1 rounded hidden md:block"
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                            <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                        </button>
-                    </div>
-                    
-                    {/* Search */}
-                    <div className="px-4 pt-4 pb-2">
-                        <input 
-                            type="text" 
-                            placeholder="Search history..."
-                            className="w-full px-3 py-2 rounded-lg text-sm"
-                            style={{
-                                background: 'var(--bg-input)',
-                                border: '1px solid var(--border-default)',
-                                color: 'var(--text-primary)',
-                                outline: 'none'
-                            }}
-                        />
-                    </div>
-                    
-                    {/* Filter */}
-                    <div className="px-4 pb-3">
-                        <select 
-                            value={filterSeverity}
-                            onChange={(e) => setFilterSeverity(e.target.value as any)}
-                            className="w-full px-3 py-2 rounded-lg text-sm"
-                            style={{
-                                background: 'var(--bg-elevated)',
-                                border: '1px solid var(--border-default)',
-                                color: 'var(--text-secondary)',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <option value="all">All Severities</option>
-                            <option value="critical">Critical</option>
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                        </select>
-                    </div>
-                    
-                    {/* History List */}
-                    <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-                        {history.length === 0 ? (
-                            <EmptyState type="history" />
-                        ) : (
-                            history
-                                .filter((item) => {
-                                    if (filterSeverity === 'all') return true;
-                                    const hasCritical = item.result.findings.some((f: any) => f.impact === 'high' && f.confidence === 'verified');
-                                    const hasHigh = item.result.findings.some((f: any) => f.impact === 'high');
-                                    const hasMedium = item.result.findings.some((f: any) => f.impact === 'medium');
-                                    if (filterSeverity === 'critical') return hasCritical;
-                                    if (filterSeverity === 'high') return hasHigh;
-                                    if (filterSeverity === 'medium') return hasMedium;
-                                    return true;
-                                })
-                                .slice(0, 10)
-                                .map((item) => {
-                                const findingCount = item.result.findings.length;
-                                const hasCritical = item.result.findings.some((f: any) => f.impact === 'high');
-                                
-                                return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => {
-                                            setResult(item);
-                                            setInputText(item.result.rawInput);
-                                        }}
-                                        className="w-full p-3 rounded-lg text-left transition-all duration-200"
-                                        style={{
-                                            background: hasCritical ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-elevated)',
-                                            border: hasCritical ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = hasCritical ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-hover)';
-                                            e.currentTarget.style.borderColor = hasCritical ? 'rgba(239, 68, 68, 0.5)' : 'var(--accent-cyan)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = hasCritical ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-elevated)';
-                                            e.currentTarget.style.borderColor = hasCritical ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-subtle)';
-                                        }}
-                                    >
-                                        {/* Header: finding count + critical badge */}
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className={cn(
-                                                    "w-1.5 h-1.5 rounded-full",
-                                                    findingCount === 0 ? "bg-emerald-500" :
-                                                    hasCritical ? "bg-red-500 animate-pulse" : "bg-amber-500"
-                                                )} />
-                                                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                                    {findingCount} finding{findingCount !== 1 ? 's' : ''}
-                                                </span>
-                                                {hasCritical && (
-                                                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{
-                                                        background: 'var(--accent-red)',
-                                                        color: 'white',
-                                                        letterSpacing: '0.05em'
-                                                    }}>
-                                                        Critical
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Metadata row */}
-                                        <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                            <span className="font-mono" style={{ color: 'var(--accent-cyan)' }}>
-                                                {item.result.executionTimeMs?.toFixed(0) || '—'}ms
-                                            </span>
-                                            <span>•</span>
-                                            <span>{new Date(item.timestamp).toLocaleDateString()}</span>
-                                        </div>
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                    
-                    {/* Privacy footer */}
-                    <div className="p-3 border-t" style={{ borderColor: 'var(--border-default)' }}>
-                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                            <Shield className="w-3 h-3" />
-                            <span>100% client-side</span>
-                        </div>
-                    </div>
-                </aside>
-                
-                {/* CENTER PANEL - Code Editor */}
-                <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--bg-app)' }}>
-                    {/* Tabs */}
-                    <div className="border-b flex items-center px-4 gap-1" style={{ borderColor: 'var(--border-default)' }}>
-                        {[
-                            { id: 'json', icon: FileJson, label: 'JSON' },
-                            { id: 'text', icon: FileText, label: 'Text' }
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all"
-                                style={{
-                                    color: activeTab === tab.id ? 'var(--accent-cyan)' : 'var(--text-tertiary)',
-                                    borderBottom: activeTab === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'
-                                }}
-                            >
-                                <tab.icon className="w-4 h-4" />
-                                {tab.label}
-                            </button>
-                        ))}
-                        
-                        <div className="flex-1" />
-                        
-                        <button 
-                            onClick={() => setInputText(EXAMPLE_PLAN)}
-                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
-                            style={{
-                                background: 'var(--bg-elevated)',
-                                color: 'var(--text-secondary)'
-                            }}
-                            title="Paste Example"
-                        >
-                            <Sparkles className="w-3 h-3" />
-                            <span className="hidden sm:inline">Paste Example</span>
-                        </button>
-                        <button 
-                            onClick={() => {
-                                try {
-                                    const parsed = JSON.parse(inputText);
-                                    setInputText(JSON.stringify(parsed, null, 2));
-                                } catch {
-                                    // Not valid JSON, ignore
-                                }
-                            }}
-                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
-                            style={{
-                                background: 'var(--bg-elevated)',
-                                color: 'var(--text-secondary)'
-                            }}
-                            title="Beautify JSON"
-                        >
-                            <Sparkles className="w-3 h-3" />
-                            <span className="hidden sm:inline">Beautify</span>
-                        </button>
-                        <button 
-                            onClick={() => {
-                                navigator.clipboard.writeText(inputText);
-                            }}
-                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
-                            style={{
-                                background: 'var(--bg-elevated)',
-                                color: 'var(--text-secondary)'
-                            }}
-                            title="Copy to clipboard"
-                        >
-                            <Copy className="w-3 h-3" />
-                            <span className="hidden sm:inline">Copy</span>
-                        </button>
-                    </div>
-                    
-                    {/* Editor */}
-                    <div className="flex-1 min-h-0 overflow-auto">
-                        <CodeEditor
-                            value={inputText}
-                            onChange={setInputText}
-                            placeholder="Paste your PostgreSQL EXPLAIN JSON output here..."
-                            language={activeTab}
-                        />
-                    </div>
-                    
-                    {/* Bottom bar */}
-                    <div className="border-t px-3 md:px-4 py-3 md:py-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 md:gap-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }}>
-                        <div className="hidden md:flex items-center gap-2 text-xs" style={{ color: '#6b7280' }}>
-                            <span style={{ opacity: 0.8 }}>Tip:</span>
-                            <code className="px-1.5 py-0.5 rounded text-[11px] font-mono" style={{ 
-                                background: 'var(--bg-surface)', 
-                                color: 'var(--text-tertiary)',
-                                border: '1px solid var(--border-subtle)'
-                            }}>
-                                EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-                            </code>
-                            <span style={{ opacity: 0.8 }}>for best results</span>
-                        </div>
-                        
-                        <button
-                            onClick={() => { handleAnalyze(); setShowMobileResults(true); }}
-                            disabled={!inputText.trim() || isAnalyzing}
-                            className="flex items-center justify-center gap-2 w-full md:w-auto px-6 md:px-8 py-3 md:py-3 rounded-xl font-bold text-sm md:text-base transition-all"
-                            style={{
-                                background: inputText.trim() ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'var(--bg-elevated)',
-                                color: inputText.trim() ? 'white' : 'var(--text-muted)',
-                                cursor: inputText.trim() ? 'pointer' : 'not-allowed',
-                                boxShadow: inputText.trim() ? '0 4px 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2)' : 'none',
-                                border: inputText.trim() ? '1px solid rgba(6, 182, 212, 0.5)' : '1px solid var(--border-default)'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (inputText.trim()) {
-                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                    e.currentTarget.style.boxShadow = '0 6px 30px rgba(6, 182, 212, 0.6), 0 0 60px rgba(6, 182, 212, 0.3)';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (inputText.trim()) {
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2)';
-                                }
-                            }}
-                        >
-                            {isAnalyzing ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Analyzing...
-                                </>
-                            ) : (
-                                <>
-                                    <Play className="w-5 h-5" />
-                                    Analyze Plan
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Mobile Results Overlay */}
-                {showMobileResults && (
-                    <div 
-                        className="md:hidden fixed inset-0 bg-black/50 z-40"
-                        onClick={() => setShowMobileResults(false)}
-                    />
-                )}
-
-                {/* RIGHT PANEL - Analysis Results */}
-                {hasResult && (
-                    <aside className={cn(
-                        "w-full md:w-[420px] lg:w-[480px] border-l flex flex-col z-50",
-                        "fixed md:relative inset-x-0 bottom-0 md:inset-auto",
-                        "max-h-[85vh] md:max-h-none",
-                        "rounded-t-2xl md:rounded-none",
-                        "transition-transform duration-300 ease-in-out",
-                        showMobileResults ? "translate-y-0" : "translate-y-full md:translate-y-0"
-                    )} style={{
-                        borderColor: 'var(--border-default)',
-                        background: 'var(--bg-surface)'
-                    }}>
-                        {/* Mobile drag handle */}
-                        <div className="md:hidden flex justify-center py-2">
-                            <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border-default)' }} />
-                        </div>
-                        
-                        {/* Header with metrics */}
-                        <div className="p-4 md:p-6 border-b space-y-3 md:space-y-4" style={{ borderColor: 'var(--border-default)' }}>
-                            <div className="flex items-center justify-between">
-                                <span className="text-lg md:text-xl font-bold" style={{ color: 'var(--accent-cyan)' }}>Analysis Results</span>
-                                <button 
-                                    onClick={() => setShowMobileResults(false)}
-                                    className="md:hidden p-1 rounded"
-                                    style={{ background: 'var(--bg-elevated)' }}
-                                >
-                                    <X className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-                                </button>
-                                <span className="hidden md:inline text-sm" style={{ color: 'var(--text-tertiary)' }}>#{result.parsedPlan?.['Node Type'] || 'Plan'}</span>
-                            </div>
-                            
-                            {/* Metrics row - compact layout */}
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="px-3 py-2.5 rounded-lg text-center" style={{ 
-                                    background: 'rgba(6, 182, 212, 0.1)',
-                                    border: '1px solid rgba(6, 182, 212, 0.3)'
-                                }}>
-                                    <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Execution</div>
-                                    <div className="text-lg font-bold font-mono" style={{ color: 'var(--accent-cyan)' }}>
-                                        {result.executionTimeMs !== null ? `${result.executionTimeMs.toFixed(1)}ms` : '—'}
-                                    </div>
-                                </div>
-                                <div className="px-3 py-2.5 rounded-lg text-center" style={{ 
-                                    background: 'rgba(139, 92, 246, 0.1)',
-                                    border: '1px solid rgba(139, 92, 246, 0.3)'
-                                }}>
-                                    <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Planning</div>
-                                    <div className="text-lg font-bold font-mono" style={{ color: 'var(--accent-purple)' }}>
-                                        {result.planningTimeMs !== null ? `${result.planningTimeMs.toFixed(1)}ms` : '—'}
-                                    </div>
-                                </div>
-                                <div className="px-3 py-2.5 rounded-lg text-center" style={{ 
-                                    background: 'rgba(245, 158, 11, 0.1)',
-                                    border: '1px solid rgba(245, 158, 11, 0.3)'
-                                }}>
-                                    <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Rows</div>
-                                    <div className="text-lg font-bold font-mono" style={{ color: 'var(--accent-orange)' }}>
-                                        {(result.parsedPlan?.['Actual Rows'] || result.parsedPlan?.['Plan Rows'] || 0).toLocaleString()}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Tabs */}
-                        <div className="border-b flex" style={{ borderColor: 'var(--border-default)' }}>
-                            <button
-                                onClick={() => setActiveResultTab('findings')}
-                                className="flex-1 px-5 py-3 text-base font-bold transition-all"
-                                style={{
-                                    color: activeResultTab === 'findings' ? 'var(--accent-cyan)' : 'var(--text-tertiary)',
-                                    borderBottom: activeResultTab === 'findings' ? '2px solid var(--accent-cyan)' : '2px solid transparent'
-                                }}
-                            >
-                                Findings ({result.findings.length})
-                            </button>
-                            <button
-                                onClick={() => setActiveResultTab('tree')}
-                                className="flex-1 px-5 py-3 text-base font-bold transition-all"
-                                style={{
-                                    color: activeResultTab === 'tree' ? 'var(--accent-cyan)' : 'var(--text-tertiary)',
-                                    borderBottom: activeResultTab === 'tree' ? '2px solid var(--accent-cyan)' : '2px solid transparent'
-                                }}
-                            >
-                                Plan Tree
-                            </button>
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="flex-1 overflow-y-auto">
-                            {activeResultTab === 'findings' ? (
-                                <div className="p-6 space-y-5">
-                                    {/* Critical */}
-                                    {groupedFindings.critical.length > 0 && (
-                                        <div>
-                                            <button
-                                                onClick={() => setExpandedSeverity(prev => ({ ...prev, critical: !prev.critical }))}
-                                                className="w-full flex items-center justify-between p-4 rounded-xl transition-all"
-                                                style={{
-                                                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08))',
-                                                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                                                    boxShadow: '0 2px 12px rgba(239, 68, 68, 0.15)'
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
-                                                        background: 'var(--accent-red)',
-                                                        boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)'
-                                                    }}>
-                                                        <AlertCircle className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <span className="text-lg font-bold" style={{ color: 'var(--accent-red-bright)' }}>Critical</span>
-                                                    <span className="text-sm px-3 py-1.5 rounded-full font-bold" style={{
-                                                        background: 'var(--accent-red)',
-                                                        color: 'white',
-                                                        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
-                                                    }}>
-                                                        {groupedFindings.critical.length}
-                                                    </span>
-                                                </div>
-                                                <ChevronDown className={cn(
-                                                    "w-5 h-5 transition-transform",
-                                                    expandedSeverity.critical && "rotate-180"
-                                                )} style={{ color: 'var(--accent-red-bright)' }} />
-                                            </button>
-                                            {expandedSeverity.critical && (
-                                                <div className="mt-3 space-y-3">
-                                                    {groupedFindings.critical.map((finding) => (
-                                                        <div key={finding.id} className="p-5 rounded-xl" style={{
-                                                            background: 'var(--bg-elevated)',
-                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-                                                        }}>
-                                                            <div className="flex items-start gap-3 mb-3">
-                                                                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{
-                                                                    background: 'var(--accent-red)',
-                                                                    boxShadow: '0 0 15px rgba(239, 68, 68, 0.3)'
-                                                                }}>
-                                                                    <AlertCircle className="w-5 h-5 text-white" />
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <div className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                                                                        {finding.title}
-                                                                    </div>
-                                                                    <div className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                                                        {finding.education.behavior}
-                                                                    </div>
-                                                                </div>
-                                                                <button className="p-2 rounded-lg hover:bg-[var(--bg-hover)]">
-                                                                    <ChevronRight className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-                                                                </button>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="badge" style={{ 
-                                                                    fontSize: '11px', 
-                                                                    padding: '4px 10px',
-                                                                    background: 'rgba(16, 185, 129, 0.15)',
-                                                                    color: 'var(--accent-green)',
-                                                                    border: '1px solid rgba(16, 185, 129, 0.3)'
-                                                                }}>
-                                                                    ✓ {finding.confidence}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    
-                                    {/* High */}
-                                    {groupedFindings.high.length > 0 && (
-                                        <div>
-                                            <button
-                                                onClick={() => setExpandedSeverity(prev => ({ ...prev, high: !prev.high }))}
-                                                className="w-full flex items-center justify-between p-5 rounded-xl transition-all"
-                                                style={{
-                                                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.08))',
-                                                    border: '1px solid rgba(245, 158, 11, 0.4)',
-                                                    boxShadow: '0 2px 12px rgba(245, 158, 11, 0.15)'
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
-                                                        background: 'var(--accent-orange)',
-                                                        boxShadow: '0 0 20px rgba(245, 158, 11, 0.4)'
-                                                    }}>
-                                                        <AlertTriangle className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <span className="text-lg font-bold" style={{ color: 'var(--accent-orange-bright)' }}>High</span>
-                                                    <span className="text-sm px-3 py-1.5 rounded-full font-bold" style={{
-                                                        background: 'var(--accent-orange)',
-                                                        color: 'white',
-                                                        boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
-                                                    }}>
-                                                        {groupedFindings.high.length}
-                                                    </span>
-                                                </div>
-                                                <ChevronDown className={cn(
-                                                    "w-5 h-5 transition-transform",
-                                                    expandedSeverity.high && "rotate-180"
-                                                )} style={{ color: 'var(--accent-orange-bright)' }} />
-                                            </button>
-                                            {expandedSeverity.high && (
-                                                <div className="mt-3 space-y-3">
-                                                    {groupedFindings.high.map((finding) => (
-                                                        <div key={finding.id} className="p-5 rounded-xl" style={{
-                                                            background: 'var(--bg-elevated)',
-                                                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-                                                        }}>
-                                                            <div className="flex items-start gap-3 mb-3">
-                                                                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{
-                                                                    background: 'var(--accent-orange)',
-                                                                    boxShadow: '0 0 15px rgba(245, 158, 11, 0.3)'
-                                                                }}>
-                                                                    <AlertTriangle className="w-5 h-5 text-white" />
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <div className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                                                                        {finding.title}
-                                                                    </div>
-                                                                    <div className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                                                        {finding.education.behavior}
-                                                                    </div>
-                                                                </div>
-                                                                <button className="p-2 rounded-lg hover:bg-[var(--bg-hover)]">
-                                                                    <ChevronRight className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-                                                                </button>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="badge" style={{ 
-                                                                    fontSize: '11px', 
-                                                                    padding: '4px 10px',
-                                                                    background: 'rgba(59, 130, 246, 0.15)',
-                                                                    color: 'var(--accent-blue)',
-                                                                    border: '1px solid rgba(59, 130, 246, 0.3)'
-                                                                }}>
-                                                                    {finding.confidence}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    
-                                    {/* Medium */}
-                                    {groupedFindings.medium.length > 0 && (
-                                        <div>
-                                            <button
-                                                onClick={() => setExpandedSeverity(prev => ({ ...prev, medium: !prev.medium }))}
-                                                className="w-full flex items-center justify-between p-5 rounded-xl transition-all"
-                                                style={{
-                                                    background: 'linear-gradient(135deg, rgba(253, 176, 34, 0.12), rgba(253, 176, 34, 0.06))',
-                                                    border: '1px solid rgba(253, 176, 34, 0.3)',
-                                                    boxShadow: '0 2px 12px rgba(253, 176, 34, 0.1)'
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
-                                                        background: '#fdb022',
-                                                        boxShadow: '0 0 20px rgba(253, 176, 34, 0.3)'
-                                                    }}>
-                                                        <Info className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <span className="text-lg font-bold" style={{ color: '#fdb022' }}>Medium</span>
-                                                    <span className="text-sm px-3 py-1.5 rounded-full font-bold" style={{
-                                                        background: '#fdb022',
-                                                        color: 'white',
-                                                        boxShadow: '0 2px 8px rgba(253, 176, 34, 0.2)'
-                                                    }}>
-                                                        {groupedFindings.medium.length}
-                                                    </span>
-                                                </div>
-                                                <ChevronDown className={cn(
-                                                    "w-5 h-5 transition-transform",
-                                                    expandedSeverity.medium && "rotate-180"
-                                                )} style={{ color: '#fdb022' }} />
-                                            </button>
-                                            {expandedSeverity.medium && (
-                                                <div className="mt-2 space-y-2 pl-2">
-                                                    {groupedFindings.medium.map((finding) => (
-                                                        <div key={finding.id} className="p-3 rounded-lg" style={{
-                                                            background: 'var(--bg-elevated)',
-                                                            border: '1px solid var(--border-default)'
-                                                        }}>
-                                                            <div className="flex items-start gap-2">
-                                                                <Info className="w-4 h-4 mt-0.5" style={{ color: '#fdb022' }} />
-                                                                <div className="flex-1">
-                                                                    <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                                                                        {finding.title}
-                                                                    </div>
-                                                                    <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                                                        {finding.education.behavior}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    
-                                    {/* Low */}
-                                    {groupedFindings.low.length > 0 && (
-                                        <div>
-                                            <button
-                                                onClick={() => setExpandedSeverity(prev => ({ ...prev, low: !prev.low }))}
-                                                className="w-full flex items-center justify-between p-3 rounded-lg transition-all"
-                                                style={{
-                                                    background: 'rgba(59, 130, 246, 0.1)',
-                                                    border: '1px solid rgba(59, 130, 246, 0.3)'
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--accent-blue)' }} />
-                                                    <span className="text-sm font-semibold" style={{ color: 'var(--accent-blue)' }}>Low</span>
-                                                    <span className="text-xs px-2 py-0.5 rounded" style={{
-                                                        background: 'var(--accent-blue)',
-                                                        color: 'white'
-                                                    }}>
-                                                        {groupedFindings.low.length}
-                                                    </span>
-                                                </div>
-                                                <ChevronDown className={cn(
-                                                    "w-4 h-4 transition-transform",
-                                                    expandedSeverity.low && "rotate-180"
-                                                )} style={{ color: 'var(--accent-blue)' }} />
-                                            </button>
-                                            {expandedSeverity.low && (
-                                                <div className="mt-2 space-y-2 pl-2">
-                                                    {groupedFindings.low.map((finding) => (
-                                                        <div key={finding.id} className="p-3 rounded-lg" style={{
-                                                            background: 'var(--bg-elevated)',
-                                                            border: '1px solid var(--border-default)'
-                                                        }}>
-                                                            <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                                                                {finding.title}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    
-                                    {result.findings.length === 0 && (
-                                        <div className="text-center py-12">
-                                            <CheckCircle2 className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--accent-green)' }} />
-                                            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No Issues Found</p>
-                                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Plan looks optimized</p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="p-4">
-                                    <PlanTree node={result.parsedPlan} findings={result.findings} />
-                                </div>
-                            )}
-                        </div>
-                    </aside>
-                )}
-            </div>
-            
-            {/* Footer with Attribution */}
-            <footer className="h-10 border-t flex items-center justify-center gap-3 md:gap-6 px-3 md:px-6 shrink-0" style={{ 
-                borderColor: 'var(--border-default)',
-                background: 'var(--bg-surface)'
-            }}>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    © 2026 PlanCheck
-                </span>
-                <span className="hidden md:inline text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
-                {/* Privacy with tooltip - hidden on mobile */}
-                <div className="relative group hidden md:block">
-                    <button className="flex items-center gap-1 text-xs hover:underline" style={{ color: 'var(--accent-green)' }}>
-                        <Shield className="w-3 h-3" />
-                        Privacy
-                    </button>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 rounded-lg text-xs w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-xl" style={{
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-default)',
-                        color: 'var(--text-secondary)'
-                    }}>
-                        <div className="flex items-center gap-2 mb-2 font-semibold" style={{ color: 'var(--accent-green)' }}>
-                            <Shield className="w-4 h-4" />
-                            Your Data Never Leaves Your Browser
-                        </div>
-                        <p className="leading-relaxed">
-                            All analysis happens 100% client-side. Your EXPLAIN plans are processed locally — no data is sent to any server. History is stored in IndexedDB. We have zero access to your queries.
-                        </p>
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2" style={{ background: 'var(--bg-elevated)', borderRight: '1px solid var(--border-default)', borderBottom: '1px solid var(--border-default)' }} />
-                    </div>
-                </div>
-                {/* Mobile: Simple privacy indicator */}
-                <div className="md:hidden flex items-center gap-1 text-xs" style={{ color: 'var(--accent-green)' }}>
-                    <Shield className="w-3 h-3" />
-                    <span>Private</span>
-                </div>
-                <span className="hidden md:inline text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
-                <a 
-                    href="https://github.com/dalibo/pev2" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hidden md:inline text-xs hover:underline"
-                    style={{ color: 'var(--accent-cyan)' }}
-                >
-                    Powered by PEV2
-                </a>
-                <span className="hidden md:inline text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
-                <a 
-                    href="mailto:contact@plancheck.dev"
-                    className="hidden md:inline text-xs hover:underline"
-                    style={{ color: 'var(--text-secondary)' }}
-                >
-                    contact@plancheck.dev
-                </a>
-            </footer>
+      <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight text-white">
+          <div className="grid h-9 w-9 place-items-center rounded-xl border border-cyan-400/30 bg-cyan-400/10">
+            <Database className="h-5 w-5 text-cyan-300" />
+          </div>
+          <span>PlanCheck</span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <a href="https://github.com/ashraf-mse/plan-check_v2" className="hidden text-sm text-slate-400 hover:text-white sm:block">GitHub</a>
+          <Link href="/analyze" className="rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-medium hover:border-cyan-400/40">Open analyzer</Link>
         </div>
-    );
+      </nav>
+
+      <section className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-20 text-center lg:pt-28">
+        <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-sm text-cyan-200">
+          <ShieldCheck className="h-4 w-4" /> Evidence-based PostgreSQL diagnostics
+        </div>
+        <h1 className="mx-auto max-w-5xl text-balance text-5xl font-semibold tracking-[-0.04em] text-white md:text-7xl">
+          Your PostgreSQL query is slow. <span className="text-cyan-300">Find out why.</span>
+        </h1>
+        <p className="mx-auto mt-7 max-w-3xl text-pretty text-lg leading-8 text-slate-300 md:text-xl">
+          Paste an EXPLAIN ANALYZE plan. PlanCheck finds expensive scans, bad row estimates,
+          disk spills, inefficient joins, trigger overhead and more — using deterministic rules,
+          not AI guesses.
+        </p>
+        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <Link href="/analyze" className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 py-3.5 font-semibold text-slate-950 transition hover:bg-cyan-200">
+            Analyze a plan — free <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link href="/analyze?example=1" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 font-semibold text-white hover:border-slate-500">
+            See an example
+          </Link>
+        </div>
+        <div className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-400">
+          <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400"/>No signup</span>
+          <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400"/>TEXT + JSON</span>
+          <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400"/>Runs in your browser</span>
+          <span className="flex items-center gap-1.5"><LockKeyhole className="h-4 w-4 text-emerald-400"/>Plans never leave your device</span>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-5xl px-6 pb-24">
+        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0b151b] shadow-2xl shadow-cyan-950/20">
+          <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+            <div><p className="text-xs font-semibold uppercase tracking-[.18em] text-red-300">High impact</p><h2 className="mt-1 text-xl font-semibold">High-Effort Zero-Result Scan</h2></div>
+            <span className="rounded-lg bg-red-400/10 px-3 py-1 text-sm text-red-300">Verified</span>
+          </div>
+          <div className="grid gap-0 md:grid-cols-3">
+            <div className="border-b border-slate-800 p-6 md:border-b-0 md:border-r"><p className="text-sm text-slate-500">Rows examined</p><p className="mt-2 text-3xl font-semibold">1,399,944</p></div>
+            <div className="border-b border-slate-800 p-6 md:border-b-0 md:border-r"><p className="text-sm text-slate-500">Rows returned</p><p className="mt-2 text-3xl font-semibold">0</p></div>
+            <div className="p-6"><p className="text-sm text-slate-500">Work discarded</p><p className="mt-2 text-3xl font-semibold text-red-300">100%</p></div>
+          </div>
+          <div className="grid gap-6 border-t border-slate-800 p-6 md:grid-cols-2">
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">What happened</p><p className="mt-2 leading-7 text-slate-300">The scan examined almost 1.4M rows and the filter rejected every one. The work is measurable directly from the plan.</p></div>
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-violet-300">What to check next</p><p className="mt-2 leading-7 text-slate-300">Verify index availability, predicate selectivity, and planner estimates before changing the query or schema.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-slate-800/80 bg-slate-950/40">
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-24 lg:grid-cols-[.9fr_1.1fr]">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">Why PlanCheck</p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-tight">It tells you what the plan proves — and what it doesn’t.</h2>
+            <p className="mt-5 max-w-xl leading-8 text-slate-400">
+              Generic AI advice can sound confident even when an EXPLAIN plan cannot support the claim.
+              PlanCheck separates observation, interpretation, and next checks so you can optimize without pretending.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              [ScanSearch,"Observed","Facts PostgreSQL actually reported in the execution plan."],
+              [BrainCircuit,"Interpreted","Why those facts commonly matter for performance."],
+              [Search,"Next checks","What to verify before you change indexes, SQL, or configuration."],
+              [ShieldCheck,"Bounded","Limitations are explicit when the plan cannot prove something."]
+            ].map(([Icon,title,copy]: any)=>(
+              <div key={title} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+                <Icon className="h-5 w-5 text-cyan-300"/><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-24">
+        <div className="text-center"><p className="text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">Already built in</p><h2 className="mt-4 text-4xl font-semibold">16+ deterministic performance checks</h2></div>
+        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {detectors.map((d)=><div key={d} className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-300"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400"/>{d}</div>)}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 pb-24">
+        <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-[#0b151b] p-8 md:p-12">
+          <div className="grid gap-10 lg:grid-cols-2">
+            <div>
+              <TerminalSquare className="h-8 w-8 text-cyan-300"/>
+              <p className="mt-6 text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">Coming next</p>
+              <h2 className="mt-3 text-4xl font-semibold">PlanCheck in your terminal.</h2>
+              <p className="mt-4 leading-8 text-slate-400">The web app is the fastest way to diagnose a plan. The CLI will bring the same engine into local workflows, CI and plan-regression checks.</p>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-[#05090d] p-5 font-mono text-sm">
+              <p className="text-slate-500">$ npx plancheck analyze plan.json</p>
+              <p className="mt-5 text-emerald-300">✓ Analysis complete</p>
+              <p className="mt-3 text-slate-300">2 high-impact findings</p>
+              <p className="mt-1 text-slate-300">3 medium-impact findings</p>
+              <p className="mt-5 text-cyan-300">$ plancheck compare before.json after.json</p>
+              <p className="mt-3 text-red-300">✕ Regression: execution +183%</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 pb-24">
+        <div className="flex items-end justify-between gap-6"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">PostgreSQL EXPLAIN library</p><h2 className="mt-3 text-3xl font-semibold">Understand the numbers behind your plan.</h2></div></div>
+        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          {guides.map(([title,href])=><Link key={href} href={href} className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 hover:border-cyan-400/30"><Gauge className="h-5 w-5 text-cyan-300"/><h3 className="mt-4 font-semibold group-hover:text-cyan-200">{title}</h3><span className="mt-4 inline-flex items-center gap-1 text-sm text-slate-500">Read guide <ArrowRight className="h-3.5 w-3.5"/></span></Link>)}
+        </div>
+      </section>
+
+      <section className="border-t border-slate-800 bg-slate-950/50">
+        <div className="mx-auto flex max-w-5xl flex-col items-center px-6 py-24 text-center">
+          <Zap className="h-8 w-8 text-cyan-300"/>
+          <h2 className="mt-5 text-4xl font-semibold">Stop guessing at query plans.</h2>
+          <p className="mt-4 max-w-2xl text-lg text-slate-400">Paste the plan. See the evidence. Know what to investigate next.</p>
+          <Link href="/analyze" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-6 py-3.5 font-semibold text-slate-950 hover:bg-cyan-200">Analyze a PostgreSQL plan <ArrowRight className="h-4 w-4"/></Link>
+        </div>
+      </section>
+    </main>
+  );
 }
