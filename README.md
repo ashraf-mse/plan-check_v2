@@ -1,36 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PlanCheck
 
-## Getting Started
+**Evidence-based PostgreSQL EXPLAIN analysis — free, private, and deterministic.**
 
-First, run the development server:
+PlanCheck helps developers understand why a PostgreSQL query is slow without pretending the execution plan proves more than it actually does.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**Live:** https://plancheck.dev
+
+## Why PlanCheck
+
+Many query-plan tools visualize PostgreSQL output. Generic AI can explain it, but may recommend fixes that the plan cannot prove are appropriate.
+
+PlanCheck takes a stricter approach:
+
+1. **Observe** what PostgreSQL actually reported.
+2. **Interpret** what that evidence commonly means.
+3. **Show the evidence** behind every finding.
+4. **State limitations** when the plan cannot prove the root cause.
+5. **Suggest what to check next** before changing SQL, indexes, or configuration.
+
+Your EXPLAIN plan is analyzed in the browser. The production analyzer does not upload your SQL or plan contents to a server.
+
+## What it detects
+
+PlanCheck currently includes deterministic checks for:
+
+- Sequential scan waste
+- High-effort zero-result scans
+- Row-estimate mismatches
+- Nested-loop amplification
+- Disk sort spills
+- Hash join memory pressure
+- Bitmap heap rechecks
+- Ineffective LIMITs
+- Excessive index-scan heap fetches
+- Parallel-query issues
+- Join-filter waste
+- CTE materialization
+- Trigger overhead
+- Recursive-query explosions
+- JIT overhead
+- Missing-index signals
+
+Each detector is intentionally bounded: a finding distinguishes what is **verified**, what is **inferred**, and what remains unknown from EXPLAIN alone.
+
+## Supported input
+
+PlanCheck accepts common PostgreSQL EXPLAIN output in both **JSON** and **text** form.
+
+Recommended:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT ...;
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Plain text `EXPLAIN ANALYZE` output is also supported.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Example
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```text
+HIGH  Row Estimate Mismatch
 
-## Learn More
+Estimated rows: 14
+Actual rows:    28,492
 
-To learn more about Next.js, take a look at the following resources:
+Interpretation
+The planner expected far fewer rows than execution produced.
+That mismatch can influence join and scan choices.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Check next
+- Statistics freshness
+- Data skew
+- Extended statistics
+- Predicate selectivity
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+The analyzer is intentionally deterministic.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```text
+src/lib/parser/       Parse and normalize EXPLAIN output
+src/lib/detectors/    Independent evidence-based detectors
+src/lib/analysis/     Traverse plans and aggregate findings
+src/components/       Analysis and visualization UI
+src/store/            Local analysis state/history
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Analysis history is stored locally in IndexedDB.
+
+## Privacy
+
+PlanCheck's production analyzer runs client-side. Query plans are not sent to the PlanCheck server for analysis.
+
+Product analytics, when configured, contain only coarse interaction metadata such as whether an analysis succeeded and the number of findings — never SQL text, plan contents, relation names, predicates, or evidence values.
+
+See the live privacy page for the current policy.
+
+## Local development
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000.
+
+Production build:
+
+```bash
+npm run build
+```
+
+## Roadmap
+
+Near-term:
+
+- More high-value PostgreSQL diagnostic guides
+- Analyzer UX and evidence improvements
+- CLI: `plancheck analyze plan.json`
+- Before/after plan comparison
+- Plan regression detection
+- CI / GitHub integration
+
+The long-term goal is to move from **"why is this query slow?"** to **"did this change introduce a PostgreSQL performance regression?"**
+
+## Contributing
+
+Issues and focused pull requests are welcome. For detector changes, include realistic EXPLAIN examples and preserve the evidence-first rule: do not turn an assumption into a verified claim.
+
+## License
+
+A license has not yet been selected. Until one is added, normal copyright rules apply.

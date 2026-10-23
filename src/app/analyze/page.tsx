@@ -33,13 +33,19 @@ import { LoadingState, SkeletonCard } from "@/components/ui/LoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
-import { track } from "@vercel/analytics";
+import posthog from "posthog-js";
 import { 
     Loader2, Shield, Database, Clock, ChevronRight, ChevronDown, ChevronLeft,
     FileJson, FileText, Sparkles, Copy, Play,
     AlertCircle, AlertTriangle, Info, CheckCircle2, TrendingUp, Activity,
     Menu, X, BarChart3
 } from "lucide-react";
+
+function captureProductEvent(event: string, properties?: Record<string, string | number | boolean>) {
+    if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+        posthog.capture(event, properties);
+    }
+}
 
 export default function AnalyzerPage() {
     const {
@@ -60,18 +66,30 @@ export default function AnalyzerPage() {
     const [showMobileHistory, setShowMobileHistory] = useState(false);
     const [showMobileResults, setShowMobileResults] = useState(false);
     const lastTrackedResult = useRef<string | null>(null);
+    const exampleLoadedFromQuery = useRef(false);
 
     useEffect(() => {
         loadHistory();
-        track("Analyzer Viewed");
+        captureProductEvent("analyzer_viewed");
     }, [loadHistory]);
+
+    useEffect(() => {
+        if (exampleLoadedFromQuery.current || typeof window === "undefined") return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("example") === "1") {
+            exampleLoadedFromQuery.current = true;
+            setInputText(EXAMPLE_PLAN);
+            setActiveTab("json");
+            captureProductEvent("example_loaded", { source: "landing" });
+        }
+    }, []);
 
     useEffect(() => {
         if (status !== "complete" || !result) return;
         const fingerprint = [result.executionTimeMs, result.planningTimeMs, result.findings.length].join(":");
         if (lastTrackedResult.current === fingerprint) return;
         lastTrackedResult.current = fingerprint;
-        track("Analysis Completed", {
+        captureProductEvent("analysis_completed", {
             findings: result.findings.length,
             highFindings: result.findings.filter((f: any) => f.impact === "high").length,
             executionMs: Math.round(result.executionTimeMs || 0),
@@ -81,13 +99,13 @@ export default function AnalyzerPage() {
 
     useEffect(() => {
         if (status === "error") {
-            track("Analysis Failed");
+            captureProductEvent("analysis_failed");
         }
     }, [status]);
 
     const handleAnalyze = async () => {
         if (!inputText.trim()) return;
-        track("Analysis Started", {
+        captureProductEvent("analysis_started", {
             inputFormat: inputText.trim().startsWith("[") || inputText.trim().startsWith("{") ? "json" : "text",
             inputSizeBucket: inputText.length < 5000 ? "small" : inputText.length < 25000 ? "medium" : "large"
         });
@@ -137,11 +155,6 @@ export default function AnalyzerPage() {
                                 color: 'var(--accent-cyan)',
                                 border: '1px solid rgba(6, 182, 212, 0.3)'
                             }}>v2</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ 
-                                background: 'rgba(245, 158, 11, 0.2)',
-                                color: '#f59e0b',
-                                border: '1px solid rgba(245, 158, 11, 0.4)'
-                            }}>BETA</span>
                         </div>
                         <span className="hidden md:block text-xs" style={{ color: 'var(--text-tertiary)' }}>PostgreSQL EXPLAIN Analyzer</span>
                     </div>
@@ -362,7 +375,7 @@ export default function AnalyzerPage() {
                         <div className="flex-1" />
                         
                         <button 
-                            onClick={() => { setInputText(EXAMPLE_PLAN); track("Example Loaded"); }}
+                            onClick={() => { setInputText(EXAMPLE_PLAN); captureProductEvent("example_loaded", { source: "analyzer" }); }}
                             className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded text-xs hover:opacity-80 transition-opacity" 
                             style={{
                                 background: 'var(--bg-elevated)',

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  ArrowRight, CheckCircle2, Database, GitCompareArrows, LockKeyhole,
+  ArrowRight, CheckCircle2, Database, LockKeyhole,
   ScanSearch, ShieldCheck, TerminalSquare, Zap, Search, Gauge, BrainCircuit
 } from "lucide-react";
 
@@ -21,8 +21,27 @@ const guides = [
 ];
 
 export default function HomePage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "PlanCheck",
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Web",
+    url: "https://plancheck.dev",
+    description: "Evidence-based PostgreSQL EXPLAIN analysis with deterministic performance diagnostics.",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    featureList: [
+      "PostgreSQL EXPLAIN ANALYZE parsing",
+      "Deterministic performance diagnostics",
+      "Text and JSON input",
+      "Client-side analysis",
+      "Plan visualization"
+    ]
+  };
+
   return (
     <main className="min-h-screen bg-[#071015] text-slate-100">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="absolute inset-x-0 top-0 h-[680px] bg-[radial-gradient(circle_at_50%_-20%,rgba(34,211,238,.22),transparent_42%),radial-gradient(circle_at_85%_20%,rgba(139,92,246,.12),transparent_30%)] pointer-events-none" />
 
       <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
@@ -33,6 +52,7 @@ export default function HomePage() {
           <span>PlanCheck</span>
         </Link>
         <div className="flex items-center gap-3">
+          <Link href="/guides/postgresql-explain-analyze" className="hidden text-sm text-slate-400 hover:text-white md:block">Guide</Link>
           <a href="https://github.com/ashraf-mse/plan-check_v2" className="hidden text-sm text-slate-400 hover:text-white sm:block">GitHub</a>
           <Link href="/analyze" className="rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-medium hover:border-cyan-400/40">Open analyzer</Link>
         </div>
@@ -139,7 +159,11 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-7xl px-6 pb-24">
         <div className="flex items-end justify-between gap-6"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">PostgreSQL EXPLAIN library</p><h2 className="mt-3 text-3xl font-semibold">Understand the numbers behind your plan.</h2></div></div>
-        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Link href="/guides/postgresql-explain-analyze" className="mt-8 flex items-center justify-between gap-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5 hover:border-cyan-400/40">
+          <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Start here</p><h3 className="mt-1 text-xl font-semibold">How to read PostgreSQL EXPLAIN ANALYZE</h3><p className="mt-2 text-sm text-slate-400">A practical walkthrough of rows, loops, estimates, scans, joins, sorts and the signals that matter.</p></div>
+          <ArrowRight className="h-5 w-5 shrink-0 text-cyan-300"/>
+        </Link>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {guides.map(([title,href])=><Link key={href} href={href} className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 hover:border-cyan-400/30"><Gauge className="h-5 w-5 text-cyan-300"/><h3 className="mt-4 font-semibold group-hover:text-cyan-200">{title}</h3><span className="mt-4 inline-flex items-center gap-1 text-sm text-slate-500">Read guide <ArrowRight className="h-3.5 w-3.5"/></span></Link>)}
         </div>
       </section>
@@ -150,6 +174,11 @@ export default function HomePage() {
           <h2 className="mt-5 text-4xl font-semibold">Stop guessing at query plans.</h2>
           <p className="mt-4 max-w-2xl text-lg text-slate-400">Paste the plan. See the evidence. Know what to investigate next.</p>
           <Link href="/analyze" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-6 py-3.5 font-semibold text-slate-950 hover:bg-cyan-200">Analyze a PostgreSQL plan <ArrowRight className="h-4 w-4"/></Link>
+          <div className="mt-10 flex flex-wrap justify-center gap-5 text-sm text-slate-500">
+            <Link href="/privacy" className="hover:text-slate-300">Privacy</Link>
+            <Link href="/guides/postgresql-explain-analyze" className="hover:text-slate-300">EXPLAIN guide</Link>
+            <a href="https://github.com/ashraf-mse/plan-check_v2" className="hover:text-slate-300">GitHub</a>
+          </div>
         </div>
       </section>
     </main>

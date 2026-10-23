@@ -1,0 +1,32 @@
+# PlanCheck
+
+PlanCheck is a free, browser-based PostgreSQL EXPLAIN and EXPLAIN ANALYZE analyzer.
+
+Canonical site: https://plancheck.dev/
+Analyzer: https://plancheck.dev/analyze
+EXPLAIN ANALYZE guide: https://plancheck.dev/guides/postgresql-explain-analyze
+Privacy: https://plancheck.dev/privacy
+Source: https://github.com/ashraf-mse/plan-check_v2
+
+## Core principle
+
+PlanCheck uses deterministic PostgreSQL rules rather than generative AI to diagnose execution plans. Findings distinguish observed evidence, interpretation, limitations, and next checks.
+
+## Supported input
+
+- PostgreSQL EXPLAIN text
+- PostgreSQL EXPLAIN ANALYZE text
+- PostgreSQL EXPLAIN JSON
+- EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+
+## Diagnostic topics
+
+- Rows Removed by Filter: https://plancheck.dev/postgresql-explain/rows-removed-by-filter
+- Sequential Scan: https://plancheck.dev/postgresql-explain/sequential-scan
+- Row estimate mismatch: https://plancheck.dev/postgresql-explain/row-estimate-mismatch
+- Nested Loop: https://plancheck.dev/postgresql-explain/nested-loop
+- Disk sort spill: https://plancheck.dev/postgresql-explain/disk-sort
+
+## Privacy
+
+Production analysis runs in the browser. SQL text and EXPLAIN plan contents are not uploaded to PlanCheck for analysis.
