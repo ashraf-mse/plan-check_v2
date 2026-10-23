@@ -97,6 +97,28 @@ Product analytics, when configured, contain only coarse interaction metadata suc
 
 See the live privacy page for the current policy.
 
+## CLI
+
+The repository now includes a Node CLI that uses the same deterministic detector engine as the web application.
+
+```bash
+npm run build:cli
+node packages/cli/dist/cli.js analyze plan.json
+```
+
+Planned npm package name: `pg-plancheck` (binary command: `plancheck`).
+
+Examples:
+
+```bash
+plancheck analyze plan.json
+cat explain.txt | plancheck analyze -
+plancheck analyze plan.json --json
+plancheck analyze plan.json --fail-on high
+```
+
+The CLI is local-only and does not upload plans.
+
 ## Local development
 
 ```bash

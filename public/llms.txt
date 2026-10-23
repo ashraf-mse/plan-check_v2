@@ -6,6 +6,8 @@ Canonical site: https://plancheck.dev/
 Analyzer: https://plancheck.dev/analyze
 EXPLAIN ANALYZE guide: https://plancheck.dev/guides/postgresql-explain-analyze
 Privacy: https://plancheck.dev/privacy
+PostgreSQL EXPLAIN reference: https://plancheck.dev/postgresql-explain
+Full AI reference: https://plancheck.dev/llms-full.txt
 Source: https://github.com/ashraf-mse/plan-check_v2
 
 ## Core principle

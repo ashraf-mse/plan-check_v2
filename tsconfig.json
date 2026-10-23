@@ -38,6 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    "pev2"
+    "pev2",
+    "packages/core",
+    "packages/cli"
   ]
 }

@@ -1,0 +1,39 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Nested Loop",
+      "Startup Cost": 12,
+      "Total Cost": 310,
+      "Plan Rows": 12,
+      "Plan Width": 48,
+      "Actual Startup Time": 0.2,
+      "Actual Total Time": 812,
+      "Actual Rows": 48391,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "customers",
+          "Plan Rows": 20,
+          "Actual Rows": 48391,
+          "Actual Total Time": 240,
+          "Actual Loops": 1,
+          "Filter": "(status = 'active')",
+          "Rows Removed by Filter": 150000
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "orders",
+          "Index Name": "orders_customer_idx",
+          "Plan Rows": 1,
+          "Actual Rows": 4,
+          "Actual Startup Time": 0.006,
+          "Actual Total Time": 0.012,
+          "Actual Loops": 48391
+        }
+      ]
+    },
+    "Planning Time": 2.9,
+    "Execution Time": 821.4
+  }
+]

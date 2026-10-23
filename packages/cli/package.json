@@ -1,0 +1,44 @@
+{
+  "name": "pg-plancheck",
+  "version": "0.1.0",
+  "description": "Evidence-based PostgreSQL EXPLAIN analysis from your terminal.",
+  "type": "module",
+  "bin": {
+    "plancheck": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "npm run build:test && node --test dist-test/cli.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "pg-plancheck-core": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ashraf-mse/plan-check_v2.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://plancheck.dev",
+  "keywords": [
+    "postgresql",
+    "postgres",
+    "explain",
+    "explain-analyze",
+    "query-plan",
+    "cli",
+    "performance"
+  ]
+}

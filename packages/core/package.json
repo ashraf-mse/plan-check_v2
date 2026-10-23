@@ -1,0 +1,42 @@
+{
+  "name": "pg-plancheck-core",
+  "version": "0.1.0",
+  "description": "Deterministic PostgreSQL EXPLAIN parsing and performance diagnostics used by PlanCheck.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ashraf-mse/plan-check_v2.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://plancheck.dev",
+  "keywords": [
+    "postgresql",
+    "postgres",
+    "explain",
+    "explain-analyze",
+    "query-plan",
+    "performance"
+  ]
+}

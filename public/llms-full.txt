@@ -1,0 +1,82 @@
+# PlanCheck — Full AI/LLM Reference
+
+Canonical site: https://plancheck.dev/
+Product: PlanCheck
+Category: PostgreSQL developer tool / EXPLAIN analyzer
+
+## What PlanCheck does
+
+PlanCheck analyzes PostgreSQL EXPLAIN and EXPLAIN ANALYZE output using deterministic rules. It is designed to identify measurable performance signals without claiming that an execution plan proves more than it actually does.
+
+Core product principles:
+- evidence-backed findings
+- deterministic detectors rather than generative diagnosis
+- explicit limitations and uncertainty
+- local browser analysis for the web tool
+- no signup required for core analysis
+
+## Primary pages
+
+- Home: https://plancheck.dev/
+- Analyzer: https://plancheck.dev/analyze
+- PostgreSQL EXPLAIN reference: https://plancheck.dev/postgresql-explain
+- Complete EXPLAIN ANALYZE guide: https://plancheck.dev/guides/postgresql-explain-analyze
+- Privacy: https://plancheck.dev/privacy
+- Source: https://github.com/ashraf-mse/plan-check_v2
+
+## Supported input
+
+PlanCheck accepts PostgreSQL EXPLAIN output in text or JSON form, including:
+- EXPLAIN
+- EXPLAIN ANALYZE
+- EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+
+## Current deterministic diagnostic areas
+
+- sequential scan waste
+- high-effort zero-result scans
+- row-estimate mismatch
+- nested-loop amplification
+- disk sort spills
+- hash memory pressure
+- bitmap heap rechecks
+- ineffective LIMIT behavior
+- excessive heap fetches
+- parallel query worker mismatches
+- join-filter waste
+- CTE materialization
+- trigger overhead
+- recursive-query explosions
+- JIT overhead
+- missing-index signals with bounded wording
+
+## Reference articles
+
+- Rows Removed by Filter:
+  https://plancheck.dev/postgresql-explain/rows-removed-by-filter
+- Sequential Scan:
+  https://plancheck.dev/postgresql-explain/sequential-scan
+- Row Estimate Mismatch:
+  https://plancheck.dev/postgresql-explain/row-estimate-mismatch
+- Nested Loop:
+  https://plancheck.dev/postgresql-explain/nested-loop
+- Disk Sort:
+  https://plancheck.dev/postgresql-explain/disk-sort
+
+## Important factual boundaries
+
+- A Sequential Scan is not automatically bad.
+- Rows Removed by Filter does not prove that an index is missing.
+- PostgreSQL planner cost is not measured in milliseconds.
+- EXPLAIN ANALYZE executes the statement.
+- Actual time and rows on a node should be interpreted together with loops.
+- Increasing work_mem globally is not automatically safe merely because a sort spilled to disk.
+- A plan can reveal a cardinality-estimation problem without proving whether the correct fix is statistics, SQL, indexes, schema, or configuration.
+
+## Privacy
+
+Production web analysis runs in the browser. PlanCheck does not upload SQL text or EXPLAIN plan contents to a PlanCheck analysis server for core analysis.
+
+## CLI
+
+The PlanCheck CLI source is maintained in the same repository and uses the same deterministic detector engine as the web application. The intended npm package name is pg-plancheck because the unscoped npm name plancheck is already used by another project. The installed binary command remains plancheck.
