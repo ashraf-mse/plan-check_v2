@@ -8,7 +8,7 @@ import {
 
 export const metadata: Metadata = {
   title: "How to Read PostgreSQL EXPLAIN ANALYZE",
-  description: "A complete practical guide to PostgreSQL EXPLAIN ANALYZE: costs, actual rows, loops, timing, scans, joins, filters, buffers, sorts, memory, parallelism, triggers and JIT.",
+  description: "Learn how to read PostgreSQL EXPLAIN ANALYZE: costs, rows, loops, scans, joins, buffers, sorts, memory, triggers, JIT, and practical diagnosis.",
   alternates: { canonical: "https://plancheck.dev/guides/postgresql-explain-analyze" },
   openGraph: {
     title: "How to Read PostgreSQL EXPLAIN ANALYZE",
