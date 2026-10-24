@@ -9,7 +9,8 @@
     "build:core": "npm run build -w pg-plancheck-core",
     "build:cli": "npm run build -w pg-plancheck-core && npm run build -w pg-plancheck",
     "test:cli": "npm run build:cli && npm test -w pg-plancheck",
-    "cli": "npm run build:cli && node packages/cli/dist/cli.js"
+    "cli": "npm run build:cli && node packages/cli/dist/cli.js",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "pg-plancheck-core": "0.1.0",

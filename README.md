@@ -154,3 +154,18 @@ Issues and focused pull requests are welcome. For detector changes, include real
 ## License
 
 A license has not yet been selected. Until one is added, normal copyright rules apply.
+
+
+## IndexNow
+
+PlanCheck hosts an IndexNow verification key at the site root and includes a release helper that discovers that key file automatically.
+
+Submit only URLs that were added, materially updated, or removed:
+
+```bash
+npm run indexnow -- \
+  https://plancheck.dev/postgresql-explain \
+  https://plancheck.dev/guides/postgresql-explain-analyze
+```
+
+IndexNow is a freshness notification, not a guarantee that a URL will be crawled or indexed.
