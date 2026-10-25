@@ -160,7 +160,9 @@ Issues and focused pull requests are welcome. For detector changes, include real
 
 ## License
 
-A license has not yet been selected. Until one is added, normal copyright rules apply.
+PlanCheck is licensed under the [Apache License 2.0](LICENSE).
+
+The analyzer, shared core, and CLI may be used, modified, and distributed under Apache-2.0. Future hosted services or commercial features may be offered separately without changing the license of the open-source code published in this repository.
 
 
 ## IndexNow

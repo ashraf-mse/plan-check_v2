@@ -40,5 +40,6 @@
     "query-plan",
     "cli",
     "performance"
-  ]
+  ],
+  "license": "Apache-2.0"
 }

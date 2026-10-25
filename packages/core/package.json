@@ -38,5 +38,6 @@
     "explain-analyze",
     "query-plan",
     "performance"
-  ]
+  ],
+  "license": "Apache-2.0"
 }
