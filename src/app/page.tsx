@@ -35,7 +35,8 @@ export default function HomePage() {
       "Deterministic performance diagnostics",
       "Text and JSON input",
       "Client-side analysis",
-      "Plan visualization"
+      "Plan visualization",
+      "Local CLI analysis via npm"
     ]
   };
 
@@ -141,17 +142,20 @@ export default function HomePage() {
           <div className="grid gap-10 lg:grid-cols-2">
             <div>
               <TerminalSquare className="h-8 w-8 text-cyan-300"/>
-              <p className="mt-6 text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">Coming next</p>
+              <p className="mt-6 text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">CLI now available</p>
               <h2 className="mt-3 text-4xl font-semibold">PlanCheck in your terminal.</h2>
-              <p className="mt-4 leading-8 text-slate-400">The web app is the fastest way to diagnose a plan. The CLI will bring the same engine into local workflows, CI and plan-regression checks.</p>
+              <p className="mt-4 leading-8 text-slate-400">Run the same deterministic detector engine locally with npm. No account, no upload, and a non-zero exit code option for scripts and CI.</p>
+              <a href="https://www.npmjs.com/package/pg-plancheck" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-cyan-300 hover:text-cyan-200">
+                View pg-plancheck on npm <ArrowRight className="h-4 w-4" />
+              </a>
             </div>
             <div className="rounded-2xl border border-slate-700 bg-[#05090d] p-5 font-mono text-sm">
-              <p className="text-slate-500">$ npx plancheck analyze plan.json</p>
+              <p className="text-slate-500">$ npx pg-plancheck analyze plan.json</p>
               <p className="mt-5 text-emerald-300">✓ Analysis complete</p>
-              <p className="mt-3 text-slate-300">2 high-impact findings</p>
-              <p className="mt-1 text-slate-300">3 medium-impact findings</p>
-              <p className="mt-5 text-cyan-300">$ plancheck compare before.json after.json</p>
-              <p className="mt-3 text-red-300">✕ Regression: execution +183%</p>
+              <p className="mt-3 text-slate-300">3 high-impact findings</p>
+              <p className="mt-1 text-slate-300">1 medium-impact finding</p>
+              <p className="mt-5 text-cyan-300">$ npx pg-plancheck analyze plan.json --fail-on high</p>
+              <p className="mt-3 text-red-300">exit code 1 — high-impact finding detected</p>
             </div>
           </div>
         </div>

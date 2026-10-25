@@ -99,25 +99,33 @@ See the live privacy page for the current policy.
 
 ## CLI
 
-The repository now includes a Node CLI that uses the same deterministic detector engine as the web application.
+PlanCheck is published on npm as [`pg-plancheck`](https://www.npmjs.com/package/pg-plancheck) and uses the same deterministic detector engine as the web application.
+
+Run it without installing:
 
 ```bash
-npm run build:cli
-node packages/cli/dist/cli.js analyze plan.json
+npx pg-plancheck analyze plan.json
 ```
 
-Planned npm package name: `pg-plancheck` (binary command: `plancheck`).
-
-Examples:
+Or install it globally:
 
 ```bash
+npm install -g pg-plancheck
 plancheck analyze plan.json
-cat explain.txt | plancheck analyze -
-plancheck analyze plan.json --json
-plancheck analyze plan.json --fail-on high
 ```
 
-The CLI is local-only and does not upload plans.
+Useful examples:
+
+```bash
+cat explain.txt | npx pg-plancheck analyze -
+npx pg-plancheck analyze plan.json --json
+npx pg-plancheck analyze plan.json --min-severity high
+npx pg-plancheck analyze plan.json --fail-on high
+```
+
+`--fail-on` exits with code 1 when a finding at or above the selected severity is present, which makes the CLI useful in scripts and CI.
+
+The CLI runs locally and does not upload plans.
 
 ## Local development
 
@@ -140,7 +148,6 @@ Near-term:
 
 - More high-value PostgreSQL diagnostic guides
 - Analyzer UX and evidence improvements
-- CLI: `plancheck analyze plan.json`
 - Before/after plan comparison
 - Plan regression detection
 - CI / GitHub integration
